@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "j629idODpf8=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\hi\\RiderProjects\\AntTool\\AntMissionManager\\AntMissionManager.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hi\\.nuget\\packages\\csvhelper\\30.0.1\\csvhelper.30.0.1.nupkg.sha512",
+    "C:\\Users\\hi\\.nuget\\packages\\materialdesigncolors\\2.1.4\\materialdesigncolors.2.1.4.nupkg.sha512",
+    "C:\\Users\\hi\\.nuget\\packages\\materialdesignthemes\\4.9.0\\materialdesignthemes.4.9.0.nupkg.sha512",
+    "C:\\Users\\hi\\.nuget\\packages\\microsoft.xaml.behaviors.wpf\\1.1.39\\microsoft.xaml.behaviors.wpf.1.1.39.nupkg.sha512",
+    "C:\\Users\\hi\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}
