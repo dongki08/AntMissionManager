@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AntMissionManager")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+63715caa4b83428ef10c23974bbbe8d1ab44d267")]
 [assembly: System.Reflection.AssemblyProductAttribute("AntMissionManager")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AntMissionManager")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

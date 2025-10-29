@@ -22,6 +22,50 @@ public class Vehicle : INotifyPropertyChanged
     private string _currentNodeName = string.Empty;
     private int _traveledDistance;
     private int _cumulativeUptime;
+    private List<string> _path = new();
+    private string _vehicleState = string.Empty;
+    private string _targetNode = string.Empty;
+
+    // 추가 필드들
+    private bool _coverage;
+    private int _port;
+    private bool _isOmni;
+    private bool _forceCharge;
+    private string _actionName = string.Empty;
+    private string _actionSourceId = string.Empty;
+    private string _arrivalDate = string.Empty;
+    private string _absArrivalDate = string.Empty;
+    private string _actionNodeId = string.Empty;
+    private int _currentNodeId;
+    private string _mapName = string.Empty;
+    private string _groupName = string.Empty;
+    private List<double> _uncertainty = new();
+    private string _connectionOk = string.Empty;
+    private string _batteryMaxTemp = string.Empty;
+    private string _batteryVoltage = string.Empty;
+    private string _vehicleType = string.Empty;
+    private string _lockUuid = string.Empty;
+    private string _lockOwnerApp = string.Empty;
+    private string _lockOwnerPc = string.Empty;
+    private string _lockOwnerUser = string.Empty;
+    private string _missionFrom = string.Empty;
+    private string _missionTo = string.Empty;
+    private string _missionFinal = string.Empty;
+    private List<string> _errors = new();
+    private bool _missionBlocked;
+
+    // state 객체의 추가 필드들
+    private string _actionSourceType = string.Empty;
+    private List<string> _bodyShape = new();
+    private List<string> _trafficInfo = new();
+    private List<string> _missionProgress = new();
+    private List<string> _errorBits = new();
+    private List<string> _sharedMemoryOut = new();
+    private List<string> _sharedMemoryIn = new();
+    private List<string> _vehicleShape = new();
+    private List<string> _errorDetailsLabel = new();
+    private List<string> _messages = new();
+    private List<string> _errorDetails = new();
 
     public string Name
     {
@@ -158,6 +202,294 @@ public class Vehicle : INotifyPropertyChanged
             return $"{hours}h {minutes}m";
         }
     }
+
+    public List<string> Path
+    {
+        get => _path;
+        set { _path = value; OnPropertyChanged(); OnPropertyChanged(nameof(TargetNode)); }
+    }
+
+    public string VehicleState
+    {
+        get => _vehicleState;
+        set { _vehicleState = value; OnPropertyChanged(); OnPropertyChanged(nameof(VehicleStateText)); }
+    }
+
+    public string VehicleStateText
+    {
+        get
+        {
+            return VehicleState switch
+            {
+                "parking" => "주차 중",
+                "runningAMission" => "미션 수행 중",
+                "movingtonode" => "노드로 이동 중",
+                "extracted" => "추출됨",
+                "charging" => "충전 중",
+                _ => string.IsNullOrEmpty(VehicleState) ? "알 수 없음" : VehicleState
+            };
+        }
+    }
+
+    public string TargetNode
+    {
+        get
+        {
+            if (Path != null && Path.Count > 0)
+            {
+                return Path[Path.Count - 1];
+            }
+            return "없음";
+        }
+    }
+
+    // 추가 프로퍼티들
+    public bool Coverage
+    {
+        get => _coverage;
+        set { _coverage = value; OnPropertyChanged(); }
+    }
+
+    public int Port
+    {
+        get => _port;
+        set { _port = value; OnPropertyChanged(); }
+    }
+
+    public bool IsOmni
+    {
+        get => _isOmni;
+        set { _isOmni = value; OnPropertyChanged(); }
+    }
+
+    public bool ForceCharge
+    {
+        get => _forceCharge;
+        set { _forceCharge = value; OnPropertyChanged(); }
+    }
+
+    public string ActionName
+    {
+        get => _actionName;
+        set { _actionName = value; OnPropertyChanged(); }
+    }
+
+    public string ActionSourceId
+    {
+        get => _actionSourceId;
+        set { _actionSourceId = value; OnPropertyChanged(); }
+    }
+
+    public string ArrivalDate
+    {
+        get => _arrivalDate;
+        set { _arrivalDate = value; OnPropertyChanged(); }
+    }
+
+    public string AbsArrivalDate
+    {
+        get => _absArrivalDate;
+        set { _absArrivalDate = value; OnPropertyChanged(); }
+    }
+
+    public string ActionNodeId
+    {
+        get => _actionNodeId;
+        set { _actionNodeId = value; OnPropertyChanged(); }
+    }
+
+    public int CurrentNodeId
+    {
+        get => _currentNodeId;
+        set { _currentNodeId = value; OnPropertyChanged(); }
+    }
+
+    public string MapName
+    {
+        get => _mapName;
+        set { _mapName = value; OnPropertyChanged(); }
+    }
+
+    public string GroupName
+    {
+        get => _groupName;
+        set { _groupName = value; OnPropertyChanged(); }
+    }
+
+    public List<double> Uncertainty
+    {
+        get => _uncertainty;
+        set { _uncertainty = value; OnPropertyChanged(); OnPropertyChanged(nameof(UncertaintyText)); }
+    }
+
+    public string UncertaintyText => Uncertainty.Count >= 2 ? $"({Uncertainty[0]:F4}, {Uncertainty[1]:F4})" : "Unknown";
+
+    public string ConnectionOk
+    {
+        get => _connectionOk;
+        set { _connectionOk = value; OnPropertyChanged(); }
+    }
+
+    public string BatteryMaxTemp
+    {
+        get => _batteryMaxTemp;
+        set { _batteryMaxTemp = value; OnPropertyChanged(); }
+    }
+
+    public string BatteryVoltage
+    {
+        get => _batteryVoltage;
+        set { _batteryVoltage = value; OnPropertyChanged(); }
+    }
+
+    public string VehicleType
+    {
+        get => _vehicleType;
+        set { _vehicleType = value; OnPropertyChanged(); }
+    }
+
+    public string LockUuid
+    {
+        get => _lockUuid;
+        set { _lockUuid = value; OnPropertyChanged(); }
+    }
+
+    public string LockOwnerApp
+    {
+        get => _lockOwnerApp;
+        set { _lockOwnerApp = value; OnPropertyChanged(); }
+    }
+
+    public string LockOwnerPc
+    {
+        get => _lockOwnerPc;
+        set { _lockOwnerPc = value; OnPropertyChanged(); }
+    }
+
+    public string LockOwnerUser
+    {
+        get => _lockOwnerUser;
+        set { _lockOwnerUser = value; OnPropertyChanged(); }
+    }
+
+    public string MissionFrom
+    {
+        get => _missionFrom;
+        set { _missionFrom = value; OnPropertyChanged(); }
+    }
+
+    public string MissionTo
+    {
+        get => _missionTo;
+        set { _missionTo = value; OnPropertyChanged(); }
+    }
+
+    public string MissionFinal
+    {
+        get => _missionFinal;
+        set { _missionFinal = value; OnPropertyChanged(); }
+    }
+
+    public List<string> Errors
+    {
+        get => _errors;
+        set { _errors = value; OnPropertyChanged(); OnPropertyChanged(nameof(ErrorsText)); }
+    }
+
+    public string ErrorsText => Errors.Count > 0 ? string.Join(", ", Errors) : "없음";
+
+    public bool MissionBlocked
+    {
+        get => _missionBlocked;
+        set { _missionBlocked = value; OnPropertyChanged(); }
+    }
+
+    // state 객체의 추가 프로퍼티들
+    public string ActionSourceType
+    {
+        get => _actionSourceType;
+        set { _actionSourceType = value; OnPropertyChanged(); }
+    }
+
+    public List<string> BodyShape
+    {
+        get => _bodyShape;
+        set { _bodyShape = value; OnPropertyChanged(); OnPropertyChanged(nameof(BodyShapeText)); }
+    }
+
+    public string BodyShapeText => BodyShape.Count > 0 ? $"{BodyShape.Count}개 좌표" : "없음";
+
+    public List<string> TrafficInfo
+    {
+        get => _trafficInfo;
+        set { _trafficInfo = value; OnPropertyChanged(); OnPropertyChanged(nameof(TrafficInfoText)); }
+    }
+
+    public string TrafficInfoText => TrafficInfo.Count > 0 ? string.Join(", ", TrafficInfo) : "없음";
+
+    public List<string> MissionProgress
+    {
+        get => _missionProgress;
+        set { _missionProgress = value; OnPropertyChanged(); OnPropertyChanged(nameof(MissionProgressText)); }
+    }
+
+    public string MissionProgressText => MissionProgress.Count > 0 ? string.Join(", ", MissionProgress) : "없음";
+
+    public List<string> ErrorBits
+    {
+        get => _errorBits;
+        set { _errorBits = value; OnPropertyChanged(); OnPropertyChanged(nameof(ErrorBitsText)); }
+    }
+
+    public string ErrorBitsText => ErrorBits.Count > 0 ? string.Join(", ", ErrorBits) : "없음";
+
+    public List<string> SharedMemoryOut
+    {
+        get => _sharedMemoryOut;
+        set { _sharedMemoryOut = value; OnPropertyChanged(); OnPropertyChanged(nameof(SharedMemoryOutText)); }
+    }
+
+    public string SharedMemoryOutText => SharedMemoryOut.Count > 0 ? string.Join(", ", SharedMemoryOut) : "없음";
+
+    public List<string> SharedMemoryIn
+    {
+        get => _sharedMemoryIn;
+        set { _sharedMemoryIn = value; OnPropertyChanged(); OnPropertyChanged(nameof(SharedMemoryInText)); }
+    }
+
+    public string SharedMemoryInText => SharedMemoryIn.Count > 0 ? string.Join(", ", SharedMemoryIn) : "없음";
+
+    public List<string> VehicleShape
+    {
+        get => _vehicleShape;
+        set { _vehicleShape = value; OnPropertyChanged(); OnPropertyChanged(nameof(VehicleShapeText)); }
+    }
+
+    public string VehicleShapeText => VehicleShape.Count > 0 ? $"{VehicleShape.Count}개 좌표" : "없음";
+
+    public List<string> ErrorDetailsLabel
+    {
+        get => _errorDetailsLabel;
+        set { _errorDetailsLabel = value; OnPropertyChanged(); OnPropertyChanged(nameof(ErrorDetailsLabelText)); }
+    }
+
+    public string ErrorDetailsLabelText => ErrorDetailsLabel.Count > 0 ? string.Join(", ", ErrorDetailsLabel) : "없음";
+
+    public List<string> Messages
+    {
+        get => _messages;
+        set { _messages = value; OnPropertyChanged(); OnPropertyChanged(nameof(MessagesText)); }
+    }
+
+    public string MessagesText => Messages.Count > 0 ? string.Join(", ", Messages) : "없음";
+
+    public List<string> ErrorDetails
+    {
+        get => _errorDetails;
+        set { _errorDetails = value; OnPropertyChanged(); OnPropertyChanged(nameof(ErrorDetailsText)); }
+    }
+
+    public string ErrorDetailsText => ErrorDetails.Count > 0 ? string.Join(", ", ErrorDetails) : "없음";
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

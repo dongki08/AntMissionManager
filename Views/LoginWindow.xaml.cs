@@ -10,19 +10,10 @@ public partial class LoginWindow : Window
     {
         InitializeComponent();
         DataContext = new LoginViewModel(this);
-        PasswordBox.KeyDown += PasswordBox_KeyDown;
-        
-        // PasswordBox 바인딩을 위한 이벤트 핸들러
-        PasswordBox.PasswordChanged += (s, e) =>
-        {
-            if (DataContext is LoginViewModel vm)
-            {
-                vm.Password = PasswordBox.Password;
-            }
-        };
+        ServerIpTextBox.KeyDown += ServerIpTextBox_KeyDown;
     }
-    
-    private void PasswordBox_KeyDown(object sender, KeyEventArgs e)
+
+    private void ServerIpTextBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
@@ -32,19 +23,7 @@ public partial class LoginWindow : Window
             }
         }
     }
-    
-    private void LoginButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is LoginViewModel vm)
-        {
-            vm.Password = PasswordBox.Password;
-            if (vm.LoginCommand.CanExecute(null))
-            {
-                vm.LoginCommand.Execute(null);
-            }
-        }
-    }
-    
+
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 1)

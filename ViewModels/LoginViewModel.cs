@@ -1,26 +1,26 @@
 using System.Windows;
 using System.Windows.Input;
+using AntMissionManager.Services;
 using AntMissionManager.Views;
 
 namespace AntMissionManager.ViewModels;
 
 public class LoginViewModel : ViewModelBase
 {
-    private string _username = "admin";
-    private string _password = "123456";
+    private readonly AntApiService _antApiService;
+
+    private string _serverIp = "localhost";
+    private const string FixedPort = "8081";
+    private const string FixedUsername = "admin";
+    private const string FixedPassword = "123456";
     private string _errorMessage = string.Empty;
     private Visibility _isErrorVisible = Visibility.Collapsed;
+    private bool _isLoggingIn = false;
 
-    public string Username
+    public string ServerUrl
     {
-        get => _username;
-        set => SetProperty(ref _username, value);
-    }
-
-    public string Password
-    {
-        get => _password;
-        set => SetProperty(ref _password, value);
+        get => _serverIp;
+        set => SetProperty(ref _serverIp, value);
     }
 
     public string ErrorMessage
@@ -35,6 +35,12 @@ public class LoginViewModel : ViewModelBase
         set => SetProperty(ref _isErrorVisible, value);
     }
 
+    public bool IsLoggingIn
+    {
+        get => _isLoggingIn;
+        set => SetProperty(ref _isLoggingIn, value);
+    }
+
     public ICommand LoginCommand { get; }
 
     private Window _loginWindow;
@@ -42,33 +48,62 @@ public class LoginViewModel : ViewModelBase
     public LoginViewModel(Window loginWindow)
     {
         _loginWindow = loginWindow;
-        LoginCommand = new RelayCommand(ExecuteLogin, CanExecuteLogin);
+        _antApiService = AntApiService.Instance;
+        LoginCommand = new AsyncRelayCommand(ExecuteLoginAsync, CanExecuteLogin);
     }
 
     private bool CanExecuteLogin()
     {
-        return !string.IsNullOrWhiteSpace(Username) && !string.IsNullOrWhiteSpace(Password);
+        return !string.IsNullOrWhiteSpace(_serverIp) &&
+               !IsLoggingIn;
     }
 
-    private void ExecuteLogin()
+    private async Task ExecuteLoginAsync()
     {
-        // 간단한 인증 로직
-        if (Username == "admin" && Password == "123456")
-        {
-            // 로그인 성공
-            Console.WriteLine("LoginViewModel.cs: Creating MainWindow");
-            var mainWindow = new MainWindow();
-            mainWindow.Show();
+        IsLoggingIn = true;
+        IsErrorVisible = Visibility.Collapsed;
+        ErrorMessage = string.Empty;
 
-            // 현재 로그인 창 닫기
-            Console.WriteLine("LoginViewModel.cs: Closing LoginWindow");
-            _loginWindow.Close();
-        }
-        else
+        try
         {
-            // 로그인 실패
-            ErrorMessage = "사용자명 또는 비밀번호가 올바르지 않습니다.";
+            var serverUrlWithPort = $"{_serverIp}:{FixedPort}";
+            Console.WriteLine($"LoginViewModel: Attempting connection to {serverUrlWithPort}");
+            Console.WriteLine($"LoginViewModel: Using fixed credentials (admin) and fixed port (8081)");
+            var loginResponse = await _antApiService.LoginAsync(serverUrlWithPort, FixedUsername, FixedPassword);
+
+            if (loginResponse.Success)
+            {
+                // 로그인 성공 - 토큰 정보 출력
+                Console.WriteLine($"LoginViewModel: Connection and login successful");
+                Console.WriteLine($"  Token: {loginResponse.Token}");
+                Console.WriteLine($"  ApiVersion: {loginResponse.ApiVersion}");
+                Console.WriteLine($"  DisplayName: {loginResponse.DisplayName}");
+
+                // MainWindow 열기 (이미 연결된 상태)
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var mainWindow = new MainWindow();
+                    mainWindow.Show();
+                    _loginWindow.Close();
+                });
+            }
+            else
+            {
+                // 로그인 실패 - 상태 코드에 따라 에러 메시지 표시
+                Console.WriteLine($"LoginViewModel: Login failed - StatusCode: {loginResponse.StatusCode}");
+                ErrorMessage = loginResponse.ErrorMessage ?? "서버 연결 또는 로그인에 실패했습니다.";
+                IsErrorVisible = Visibility.Visible;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"LoginViewModel: Exception - {ex.Message}");
+            ErrorMessage = $"로그인 오류: {ex.Message}";
             IsErrorVisible = Visibility.Visible;
+        }
+        finally
+        {
+            IsLoggingIn = false;
         }
     }
 }

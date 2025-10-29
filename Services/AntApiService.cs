@@ -7,6 +7,9 @@ namespace AntMissionManager.Services;
 
 public class AntApiService
 {
+    private static AntApiService? _instance;
+    private static readonly object _lock = new object();
+
     private readonly HttpClient _httpClient;
     private string _baseUrl = "http://localhost:8081/wms/rest";
     private string _token = string.Empty;
@@ -14,17 +17,45 @@ public class AntApiService
 
     public bool IsConnected { get; private set; }
 
-    public AntApiService()
+    public static AntApiService Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                lock (_lock)
+                {
+                    if (_instance == null)
+                    {
+                        _instance = new AntApiService();
+                    }
+                }
+            }
+            return _instance;
+        }
+    }
+
+    private AntApiService()
     {
         _httpClient = new HttpClient();
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
     }
 
-    public async Task<bool> LoginAsync(string serverUrl, string username = "admin", string password = "123456")
+    public class LoginResponse
+    {
+        public bool Success { get; set; }
+        public int StatusCode { get; set; }
+        public string? Token { get; set; }
+        public string? ApiVersion { get; set; }
+        public string? DisplayName { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
+
+    public async Task<LoginResponse> LoginAsync(string serverUrl, string username = "admin", string password = "123456")
     {
         try
         {
-            _baseUrl = $"{serverUrl}/wms/rest";
+            _baseUrl = $"http://{serverUrl}/wms/rest";
             var loginUrl = $"{_baseUrl}/login";
 
             var loginRequest = new
@@ -39,28 +70,78 @@ public class AntApiService
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync(loginUrl, content);
-            
+            var statusCode = (int)response.StatusCode;
+
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                var loginResponse = JsonConvert.DeserializeObject<dynamic>(responseContent);
-                
-                if (loginResponse?.token != null)
+                var loginData = JsonConvert.DeserializeObject<dynamic>(responseContent);
+
+                if (loginData?.token != null)
                 {
-                    _token = loginResponse.token;
-                    _apiVersion = $"/{loginResponse.apiVersion}";
+                    _token = loginData.token;
+                    _apiVersion = $"/{loginData.apiVersion}";
                     IsConnected = true;
-                    return true;
+
+                    return new LoginResponse
+                    {
+                        Success = true,
+                        StatusCode = statusCode,
+                        Token = _token,
+                        ApiVersion = loginData.apiVersion,
+                        DisplayName = loginData.displayName ?? username
+                    };
                 }
             }
+            else if (statusCode == 401)
+            {
+                IsConnected = false;
+                return new LoginResponse
+                {
+                    Success = false,
+                    StatusCode = 401,
+                    ErrorMessage = "아이디 또는 비밀번호가 올바르지 않습니다."
+                };
+            }
+            else
+            {
+                IsConnected = false;
+                return new LoginResponse
+                {
+                    Success = false,
+                    StatusCode = statusCode,
+                    ErrorMessage = $"서버 응답 오류: {statusCode}"
+                };
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            IsConnected = false;
+            return new LoginResponse
+            {
+                Success = false,
+                StatusCode = 0,
+                ErrorMessage = $"서버 연결 실패: {ex.Message}"
+            };
         }
         catch (Exception ex)
         {
-            throw new Exception($"ANT 서버 로그인 실패: {ex.Message}");
+            IsConnected = false;
+            return new LoginResponse
+            {
+                Success = false,
+                StatusCode = 0,
+                ErrorMessage = $"로그인 오류: {ex.Message}"
+            };
         }
 
         IsConnected = false;
-        return false;
+        return new LoginResponse
+        {
+            Success = false,
+            StatusCode = 0,
+            ErrorMessage = "알 수 없는 오류가 발생했습니다."
+        };
     }
 
     public async Task<List<Vehicle>> GetAllVehiclesAsync()
@@ -104,7 +185,48 @@ public class AntApiService
                             Course = GetCourse(vehicleData.location),
                             CurrentNodeName = GetCurrentNodeName(vehicleData.location),
                             TraveledDistance = vehicleData.traveleddistance ?? 0,
-                            CumulativeUptime = vehicleData.cumulativeuptime ?? 0
+                            CumulativeUptime = vehicleData.cumulativeuptime ?? 0,
+                            Path = GetPath(vehicleData.path),
+                            VehicleState = GetVehicleState(vehicleData.state),
+                            // 추가 필드들
+                            Coverage = vehicleData.coverage ?? false,
+                            Port = vehicleData.port ?? 0,
+                            IsOmni = vehicleData.isOmni ?? false,
+                            ForceCharge = vehicleData.forceCharge ?? false,
+                            ActionName = GetActionName(vehicleData.action),
+                            ActionSourceId = GetActionSourceId(vehicleData.action),
+                            ArrivalDate = GetArrivalDate(vehicleData.action),
+                            AbsArrivalDate = GetAbsArrivalDate(vehicleData.action),
+                            ActionNodeId = GetActionNodeId(vehicleData.action),
+                            CurrentNodeId = vehicleData.location?.currentnodeid ?? -1,
+                            MapName = vehicleData.location?.map ?? "",
+                            GroupName = vehicleData.location?.group ?? "",
+                            Uncertainty = GetUncertainty(vehicleData.location),
+                            ConnectionOk = GetStateValue(vehicleData.state, "connection.ok"),
+                            BatteryMaxTemp = GetStateValue(vehicleData.state, "battery.info.maxtemperature"),
+                            BatteryVoltage = GetBatteryVoltage(vehicleData.state),
+                            VehicleType = GetStateValue(vehicleData.state, "vehicle.type"),
+                            LockUuid = GetStateValue(vehicleData.state, "lock.UUID"),
+                            LockOwnerApp = GetLockOwner(vehicleData.state, 0),
+                            LockOwnerPc = GetLockOwner(vehicleData.state, 1),
+                            LockOwnerUser = GetLockOwner(vehicleData.state, 2),
+                            MissionFrom = GetMissionInfo(vehicleData.state, 0),
+                            MissionTo = GetMissionInfo(vehicleData.state, 1),
+                            MissionFinal = GetMissionInfo(vehicleData.state, 2),
+                            Errors = GetErrors(vehicleData.state),
+                            MissionBlocked = GetMissionBlocked(vehicleData.state),
+                            // state 객체의 추가 필드들
+                            ActionSourceType = GetActionSourceType(vehicleData.action),
+                            BodyShape = GetStateArrayValue(vehicleData.state, "body.shape"),
+                            TrafficInfo = GetStateArrayValue(vehicleData.state, "traffic.info"),
+                            MissionProgress = GetStateArrayValue(vehicleData.state, "mission.progress"),
+                            ErrorBits = GetStateArrayValue(vehicleData.state, "error.bits"),
+                            SharedMemoryOut = GetStateArrayValue(vehicleData.state, "sharedMemory.out"),
+                            SharedMemoryIn = GetStateArrayValue(vehicleData.state, "sharedMemory.in"),
+                            VehicleShape = GetStateArrayValue(vehicleData.state, "vehicle.shape"),
+                            ErrorDetailsLabel = GetStateArrayValue(vehicleData.state, "errorDetailsLabel"),
+                            Messages = GetStateArrayValue(vehicleData.state, "messages"),
+                            ErrorDetails = GetStateArrayValue(vehicleData.state, "errorDetails")
                         };
                         vehicles.Add(vehicle);
                     }
@@ -392,6 +514,154 @@ public class AntApiService
             return locationData.currentnode.name;
         }
         return "";
+    }
+
+    private static List<string> GetPath(dynamic? pathData)
+    {
+        var path = new List<string>();
+
+        if (pathData is Newtonsoft.Json.Linq.JArray pathArray)
+        {
+            foreach (var node in pathArray)
+            {
+                if (node?.ToString() is string nodeText && !string.IsNullOrEmpty(nodeText))
+                {
+                    path.Add(nodeText);
+                }
+            }
+        }
+
+        return path;
+    }
+
+    private static string GetVehicleState(dynamic? stateData)
+    {
+        if (stateData?["vehicle.state"] is Newtonsoft.Json.Linq.JArray vehicleStateArray && vehicleStateArray.Count > 0)
+        {
+            return vehicleStateArray[0]?.ToString() ?? "";
+        }
+        return "";
+    }
+
+    private static string GetActionName(dynamic? actionData)
+    {
+        return actionData?.name?.ToString() ?? "";
+    }
+
+    private static string GetActionSourceId(dynamic? actionData)
+    {
+        return actionData?.sourceid?.ToString() ?? "";
+    }
+
+    private static string GetArrivalDate(dynamic? actionData)
+    {
+        return actionData?.args?.arrivaldate?.ToString() ?? "";
+    }
+
+    private static string GetAbsArrivalDate(dynamic? actionData)
+    {
+        return actionData?.args?.absarrivaldate?.ToString() ?? "";
+    }
+
+    private static string GetActionNodeId(dynamic? actionData)
+    {
+        return actionData?.args?.nodeid?.ToString() ?? "";
+    }
+
+    private static List<double> GetUncertainty(dynamic? locationData)
+    {
+        var uncertainty = new List<double>();
+        if (locationData?.uncertainty is Newtonsoft.Json.Linq.JArray uncertaintyArray && uncertaintyArray.Count >= 2)
+        {
+            uncertainty.Add((double)(uncertaintyArray[0] ?? 0.0));
+            uncertainty.Add((double)(uncertaintyArray[1] ?? 0.0));
+        }
+        return uncertainty;
+    }
+
+    private static string GetStateValue(dynamic? stateData, string key)
+    {
+        if (stateData?[key] is Newtonsoft.Json.Linq.JArray valueArray && valueArray.Count > 0)
+        {
+            return valueArray[0]?.ToString() ?? "";
+        }
+        return "";
+    }
+
+    private static string GetBatteryVoltage(dynamic? stateData)
+    {
+        if (stateData?["battery.info"] is Newtonsoft.Json.Linq.JArray batteryArray && batteryArray.Count > 1)
+        {
+            return batteryArray[1]?.ToString() ?? "";
+        }
+        return "";
+    }
+
+    private static string GetLockOwner(dynamic? stateData, int index)
+    {
+        if (stateData?["lock.owner"] is Newtonsoft.Json.Linq.JArray ownerArray && ownerArray.Count > index)
+        {
+            return ownerArray[index]?.ToString() ?? "";
+        }
+        return "";
+    }
+
+    private static string GetMissionInfo(dynamic? stateData, int index)
+    {
+        if (stateData?["mission.info"] is Newtonsoft.Json.Linq.JArray missionArray && missionArray.Count > index)
+        {
+            return missionArray[index]?.ToString() ?? "";
+        }
+        return "";
+    }
+
+    private static List<string> GetErrors(dynamic? stateData)
+    {
+        var errors = new List<string>();
+        if (stateData?["errors"] is Newtonsoft.Json.Linq.JArray errorArray)
+        {
+            foreach (var error in errorArray)
+            {
+                if (error?.ToString() is string errorText && !string.IsNullOrEmpty(errorText))
+                {
+                    errors.Add(errorText);
+                }
+            }
+        }
+        return errors;
+    }
+
+    private static bool GetMissionBlocked(dynamic? stateData)
+    {
+        if (stateData?["vehicle.state"] is Newtonsoft.Json.Linq.JArray vehicleStateArray && vehicleStateArray.Count > 1)
+        {
+            var blockedText = vehicleStateArray[1]?.ToString() ?? "false";
+            return bool.TryParse(blockedText, out bool blocked) && blocked;
+        }
+        return false;
+    }
+
+    private static string GetActionSourceType(dynamic? actionData)
+    {
+        return actionData?.sourcetype?.ToString() ?? "";
+    }
+
+    private static List<string> GetStateArrayValue(dynamic? stateData, string key)
+    {
+        var result = new List<string>();
+
+        if (stateData?[key] is Newtonsoft.Json.Linq.JArray array)
+        {
+            foreach (var item in array)
+            {
+                if (item != null)
+                {
+                    result.Add(item.ToString() ?? "");
+                }
+            }
+        }
+
+        return result;
     }
 
     private static string GetMissionTypeText(int missionType)

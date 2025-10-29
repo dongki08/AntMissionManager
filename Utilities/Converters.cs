@@ -93,3 +93,22 @@ public class NavigationStateToColorConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+public class BatteryLevelToWidthConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int batteryLevel)
+        {
+            // 최대 너비는 80, 배터리 레벨(0-100)에 비례하여 계산
+            var width = (batteryLevel / 100.0) * 80.0;
+            return Math.Max(5, width); // 최소 5로 설정하여 0%일 때도 약간 보이게
+        }
+        return 5.0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

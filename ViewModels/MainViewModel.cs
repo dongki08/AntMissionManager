@@ -43,11 +43,47 @@ public class MainViewModel : ViewModelBase
 
     public MainViewModel()
     {
-        _antApiService = new AntApiService();
+        _antApiService = AntApiService.Instance;
         _fileService = new FileService();
-        
+
         InitializeCommands();
         LoadInitialData();
+
+        // LoginViewModel에서 이미 로그인했으므로 자동 연결 불필요
+        // 연결 상태 확인만 수행
+        UpdateConnectionStatus();
+    }
+
+    private void UpdateConnectionStatus()
+    {
+        if (_antApiService.IsConnected)
+        {
+            IsConnected = true;
+            ConnectionStatus = $"연결 상태: 연결됨 ({ServerUrl})";
+            StatusText = "ANT 서버 연결됨";
+
+            // 데이터 로드
+            _ = LoadInitialServerData();
+        }
+        else
+        {
+            IsConnected = false;
+            ConnectionStatus = "연결 상태: 미연결";
+            StatusText = "서버에 연결되지 않았습니다";
+        }
+    }
+
+    private async Task LoadInitialServerData()
+    {
+        try
+        {
+            await ExecuteRefreshNodes();
+            await ExecuteRefreshVehicles();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"초기 데이터 로드 실패: {ex.Message}";
+        }
     }
 
     #region Properties
@@ -535,33 +571,24 @@ public class MainViewModel : ViewModelBase
     {
         StatusText = "ANT 서버에 연결 중...";
         ConnectionStatus = "연결 상태: 연결 중...";
-        
-        try
+
+        var loginResponse = await _antApiService.LoginAsync(ServerUrl, Username, Password);
+
+        if (loginResponse.Success)
         {
-            var success = await _antApiService.LoginAsync(ServerUrl, Username, Password);
-            
-            if (success)
-            {
-                IsConnected = true;
-                ConnectionStatus = $"연결 상태: 연결됨 ({ServerUrl})";
-                StatusText = "ANT 서버 연결 성공";
-                
-                // 연결 성공 시 기본 데이터 로드
-                await ExecuteRefreshNodes();
-                await ExecuteRefreshVehicles();
-            }
-            else
-            {
-                IsConnected = false;
-                ConnectionStatus = "연결 상태: 연결 실패";
-                StatusText = "ANT 서버 연결 실패";
-            }
+            IsConnected = true;
+            ConnectionStatus = $"연결 상태: 연결됨 ({ServerUrl})";
+            StatusText = $"ANT 서버 연결 성공 - {loginResponse.DisplayName}";
+
+            // 연결 성공 시 기본 데이터 로드
+            await ExecuteRefreshNodes();
+            await ExecuteRefreshVehicles();
         }
-        catch (Exception ex)
+        else
         {
             IsConnected = false;
-            ConnectionStatus = "연결 상태: 오류";
-            StatusText = $"서버 연결 오류: {ex.Message}";
+            ConnectionStatus = "연결 상태: 연결 실패";
+            StatusText = loginResponse.ErrorMessage ?? "ANT 서버 연결 실패";
         }
     }
 

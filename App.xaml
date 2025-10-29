@@ -188,7 +188,7 @@
                 <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
                 <Setter Property="FontSize" Value="24"/>
                 <Setter Property="FontWeight" Value="Bold"/>
-                <Setter Property="Margin" Value="0,0,0,16"/>
+                <Setter Property="Margin" Value="0,0,0,0"/>
             </Style>
             
             <Style x:Key="SubheadingText" TargetType="TextBlock">
@@ -219,8 +219,9 @@
             <utilities:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <utilities:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
             <utilities:BatteryLevelToColorConverter x:Key="BatteryLevelToColorConverter"/>
+            <utilities:BatteryLevelToWidthConverter x:Key="BatteryLevelToWidthConverter"/>
             <utilities:NavigationStateToColorConverter x:Key="NavigationStateToColorConverter"/>
-            
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>
