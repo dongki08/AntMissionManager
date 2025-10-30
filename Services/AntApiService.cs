@@ -11,12 +11,12 @@ public class AntApiService
     private static readonly object _lock = new object();
 
     private readonly HttpClient _httpClient;
-    private string _baseUrl = "http://localhost:8081/wms/rest";
+    private string _baseUrl = string.Empty;
     private string _token = string.Empty;
     private string _apiVersion = string.Empty;
 
     public bool IsConnected { get; private set; }
-    public string CurrentServerUrl { get; private set; } = "localhost:8081";
+    public string CurrentServerUrl { get; private set; } = string.Empty;
 
     public static AntApiService Instance
     {
@@ -123,7 +123,7 @@ public class AntApiService
             {
                 Success = false,
                 StatusCode = 0,
-                ErrorMessage = $"서버 연결 실패: {ex.Message}"
+                ErrorMessage = $"서버 연결 실패"
             };
         }
         catch (Exception ex)
@@ -684,24 +684,24 @@ public class AntApiService
 
     public async Task<List<NodeInfo>> GetAllNodesAsync()
     {
-        if (!IsConnected) 
+        if (!IsConnected)
             throw new InvalidOperationException("ANT 서버에 연결되지 않았습니다.");
 
         try
         {
-            var url = $"{_baseUrl}{_apiVersion}/mapdata";
+            var url = $"{_baseUrl}/{_apiVersion}/maps/level/1/data";
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {_token}");
 
             var response = await _httpClient.SendAsync(request);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
                 var apiResponse = JsonConvert.DeserializeObject<dynamic>(content);
-                
+
                 var nodes = new List<NodeInfo>();
-                
+
                 if (apiResponse?.payload?.data != null)
                 {
                     foreach (var dataItem in apiResponse.payload.data)
@@ -732,7 +732,7 @@ public class AntApiService
                         }
                     }
                 }
-                
+
                 return nodes;
             }
             else
@@ -743,6 +743,337 @@ public class AntApiService
         catch (Exception ex)
         {
             throw new Exception($"노드 정보 조회 오류: {ex.Message}");
+        }
+    }
+
+    // Helper methods for safe JSON parsing
+    private static int TryGetInt(dynamic obj, string key)
+    {
+        try
+        {
+            if (obj == null) return 0;
+            var value = obj[key];
+            if (value == null) return 0;
+
+            if (value is Newtonsoft.Json.Linq.JValue jValue)
+            {
+                return Convert.ToInt32(jValue.Value);
+            }
+
+            return Convert.ToInt32(value.ToString());
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static string TryGetString(dynamic obj, string key)
+    {
+        try
+        {
+            if (obj == null) return "";
+            var value = obj[key];
+            if (value == null) return "";
+
+            if (value is Newtonsoft.Json.Linq.JValue jValue)
+            {
+                return jValue.Value?.ToString() ?? "";
+            }
+
+            return value.ToString() ?? "";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static double TryGetDouble(dynamic obj, int index)
+    {
+        try
+        {
+            if (obj == null) return 0.0;
+            var value = obj[index];
+            if (value == null) return 0.0;
+
+            if (value is Newtonsoft.Json.Linq.JValue jValue)
+            {
+                return Convert.ToDouble(jValue.Value);
+            }
+
+            return Convert.ToDouble(value.ToString());
+        }
+        catch
+        {
+            return 0.0;
+        }
+    }
+
+    private static int TryGetInt(dynamic obj, int index)
+    {
+        try
+        {
+            if (obj == null) return 0;
+            var value = obj[index];
+            if (value == null) return 0;
+
+            if (value is Newtonsoft.Json.Linq.JValue jValue)
+            {
+                return Convert.ToInt32(jValue.Value);
+            }
+
+            return Convert.ToInt32(value.ToString());
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    public async Task<List<MapData>> GetMapDataAsync()
+    {
+        MapLogger.LogSection("GetMapDataAsync Started");
+
+        if (!IsConnected)
+        {
+            MapLogger.LogError("Not connected to ANT server");
+            throw new InvalidOperationException("ANT 서버에 연결되지 않았습니다.");
+        }
+
+        try
+        {
+            var url = $"{_baseUrl}{_apiVersion}/maps/level/1/data";
+            MapLogger.Log($"Request URL: {url}");
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Authorization", $"Bearer {_token}");
+
+            var response = await _httpClient.SendAsync(request);
+            MapLogger.Log($"Response Status: {response.StatusCode}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                MapLogger.Log($"Response length: {content.Length} characters");
+                MapLogger.Log($"Response preview (first 500 chars): {content.Substring(0, Math.Min(500, content.Length))}");
+
+                var apiResponse = JsonConvert.DeserializeObject<dynamic>(content);
+
+                var mapDataList = new List<MapData>();
+
+                MapLogger.Log($"apiResponse is null: {apiResponse == null}");
+                MapLogger.Log($"payload is null: {apiResponse?.payload == null}");
+                MapLogger.Log($"data is null: {apiResponse?.payload?.data == null}");
+
+                if (apiResponse?.payload?.data != null)
+                {
+                    var dataArray = apiResponse.payload.data;
+
+                    // Check if data is an array or single object
+                    bool isArray = dataArray is Newtonsoft.Json.Linq.JArray;
+                    MapLogger.Log($"data is array: {isArray}");
+
+                    if (isArray)
+                    {
+                        MapLogger.Log($"data array count: {dataArray.Count}");
+                    }
+
+                    // Handle both array and single object cases
+                    var dataItems = isArray ? dataArray : new Newtonsoft.Json.Linq.JArray { dataArray };
+
+                    foreach (var dataItem in dataItems)
+                    {
+                        MapLogger.LogSection("Processing Map Item");
+                        MapLogger.Log($"dataItem type: {dataItem?.GetType().Name}");
+                        MapLogger.Log($"dataItem has 'id': {dataItem["id"] != null}");
+                        MapLogger.Log($"dataItem has 'alias': {dataItem["alias"] != null}");
+                        MapLogger.Log($"dataItem has 'data': {dataItem["data"] != null}");
+                        MapLogger.Log($"dataItem has 'layers': {dataItem["layers"] != null}");
+
+                        // Get map info from nested data object
+                        var dataObject = dataItem["data"];
+                        MapLogger.Log($"dataObject is null: {dataObject == null}");
+
+                        if (dataObject != null)
+                        {
+                            MapLogger.Log($"dataObject has 'id': {dataObject["id"] != null}");
+                            MapLogger.Log($"dataObject has 'alias': {dataObject["alias"] != null}");
+                            MapLogger.Log($"dataObject has 'layers': {dataObject["layers"] != null}");
+
+                            if (dataObject["id"] != null)
+                            {
+                                MapLogger.Log($"id value: {dataObject["id"]}");
+                            }
+                            if (dataObject["alias"] != null)
+                            {
+                                MapLogger.Log($"alias value: {dataObject["alias"]}");
+                            }
+                        }
+
+                        var mapData = new MapData
+                        {
+                            Id = TryGetInt(dataObject, "id"),
+                            Alias = TryGetString(dataObject, "alias"),
+                            Description = TryGetString(dataObject, "description")
+                        };
+
+                        MapLogger.Log($"Created MapData: ID={mapData.Id}, Alias={mapData.Alias}");
+
+                        // Check two possible structures:
+                        // 1. dataItem.data.layers (nested)
+                        // 2. dataItem.layers (direct)
+                        var layersData = dataItem["data"]?["layers"] ?? dataItem["layers"];
+
+                        MapLogger.Log($"layersData is null: {layersData == null}");
+
+                        if (layersData != null)
+                        {
+                            var layersCount = (layersData as Newtonsoft.Json.Linq.JArray)?.Count ?? 0;
+                            MapLogger.Log($"layers count: {layersCount}");
+
+                            foreach (var layerData in layersData)
+                            {
+                                var layerName = TryGetString(layerData, "name");
+                                MapLogger.LogSection($"Processing Layer: {layerName}");
+
+                                var layer = new MapLayer
+                                {
+                                    Name = layerName,
+                                    Description = TryGetString(layerData, "desc")
+                                };
+
+                                // Parse nodes (symbols) - matching JavaScript: layer.symbols
+                                var symbols = layerData["symbols"];
+                                if (symbols != null)
+                                {
+                                    var symbolsCount = (symbols as Newtonsoft.Json.Linq.JArray)?.Count ?? 0;
+                                    MapLogger.Log($"Symbols count: {symbolsCount}");
+
+                                    int nodeIndex = 0;
+                                    foreach (var symbol in symbols)
+                                    {
+                                        var coord = symbol["coord"];
+                                        var coordCount = (coord as Newtonsoft.Json.Linq.JArray)?.Count ?? 0;
+                                        if (coord != null && coordCount >= 2)
+                                        {
+                                            var node = new MapNode
+                                            {
+                                                Id = TryGetInt(symbol, "id"),
+                                                Name = TryGetString(symbol, "name"),
+                                                SymbolId = TryGetString(symbol, "symbolid"),
+                                                X = TryGetDouble(coord, 0),
+                                                Y = TryGetDouble(coord, 1),
+                                                Z = coordCount >= 3 ? TryGetDouble(coord, 2) : 0.0
+                                            };
+                                            layer.Nodes.Add(node);
+
+                                            if (nodeIndex < 5) // Log first 5 nodes
+                                            {
+                                                MapLogger.Log($"  Node {nodeIndex}: ID={node.Id}, Name={node.Name} at ({node.X:F2}, {node.Y:F2}, {node.Z:F2})");
+                                            }
+                                            nodeIndex++;
+                                        }
+                                    }
+                                    MapLogger.Log($"Total nodes added: {layer.Nodes.Count}");
+                                }
+                                else
+                                {
+                                    MapLogger.Log($"No symbols in layer {layerName}");
+                                }
+
+                                // Parse links (lines) - matching JavaScript: layer.lines
+                                var lines = layerData["lines"];
+                                if (lines != null)
+                                {
+                                    var linesCount = (lines as Newtonsoft.Json.Linq.JArray)?.Count ?? 0;
+                                    MapLogger.Log($"Lines count: {linesCount}");
+
+                                    int linkIndex = 0;
+                                    foreach (var line in lines)
+                                    {
+                                        var coord = line["coord"];
+                                        var ids = line["ids"];
+
+                                        var coordCount = (coord as Newtonsoft.Json.Linq.JArray)?.Count ?? 0;
+                                        if (coord != null && coordCount >= 4)
+                                        {
+                                            var link = new MapLink
+                                            {
+                                                Name = TryGetString(line, "name"),
+                                                StyleId = TryGetString(line, "styleid"),
+                                                X1 = TryGetDouble(coord, 0),
+                                                Y1 = TryGetDouble(coord, 1),
+                                                X2 = TryGetDouble(coord, 2),
+                                                Y2 = TryGetDouble(coord, 3)
+                                            };
+
+                                            // Parse node IDs
+                                            if (ids != null)
+                                            {
+                                                var idsCount = (ids as Newtonsoft.Json.Linq.JArray)?.Count ?? 0;
+                                                for (int i = 0; i < idsCount; i++)
+                                                {
+                                                    var nodeId = TryGetInt(ids, i);
+                                                    if (nodeId > 0)
+                                                    {
+                                                        link.NodeIds.Add(nodeId);
+                                                    }
+                                                }
+                                            }
+
+                                            layer.Links.Add(link);
+
+                                            if (linkIndex < 5) // Log first 5 links
+                                            {
+                                                var idsStr = link.NodeIds.Count > 0 ? $"[{string.Join(", ", link.NodeIds)}]" : "[]";
+                                                MapLogger.Log($"  Link {linkIndex}: ({link.X1:F2}, {link.Y1:F2}) -> ({link.X2:F2}, {link.Y2:F2}), IDs: {idsStr}");
+                                            }
+                                            linkIndex++;
+                                        }
+                                    }
+                                    MapLogger.Log($"Total links added: {layer.Links.Count}");
+                                }
+                                else
+                                {
+                                    MapLogger.Log($"No lines in layer {layerName}");
+                                }
+
+                                mapData.Layers.Add(layer);
+                            }
+                        }
+
+                        MapLogger.Log($"Map '{mapData.Alias}' has {mapData.Layers.Count} layers");
+                        mapDataList.Add(mapData);
+                    }
+                }
+                else
+                {
+                    MapLogger.LogError("No data in payload!");
+                }
+
+                MapLogger.LogSection($"Result: Returning {mapDataList.Count} maps");
+
+                // Summary
+                int totalNodes = mapDataList.SelectMany(m => m.Layers).Sum(l => l.Nodes.Count);
+                int totalLinks = mapDataList.SelectMany(m => m.Layers).Sum(l => l.Links.Count);
+                MapLogger.Log($"Total across all maps: {totalNodes} nodes, {totalLinks} links");
+                MapLogger.Log($"Log file saved at: {MapLogger.GetLogFilePath()}");
+
+                return mapDataList;
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                MapLogger.LogError($"HTTP Error: {response.StatusCode}", null);
+                MapLogger.Log($"Error response: {errorContent}");
+                throw new Exception($"맵 데이터 조회 실패: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            MapLogger.LogError("Exception in GetMapDataAsync", ex);
+            throw new Exception($"맵 데이터 조회 오류: {ex.Message}");
         }
     }
 

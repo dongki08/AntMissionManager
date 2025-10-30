@@ -210,6 +210,74 @@
                 <Setter Property="FontWeight" Value="Normal"/>
             </Style>
             
+            <!-- DataGrid Shared Styles -->
+            <Style x:Key="AppDataGridHeaderStyle" TargetType="DataGridColumnHeader">
+                <Setter Property="Background" Value="{StaticResource SurfaceBackground}"/>
+                <Setter Property="Foreground" Value="{StaticResource SecondaryText}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Padding" Value="16,12"/>
+                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            
+            <Style x:Key="AppDataGridCellStyle" TargetType="DataGridCell">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="16,8"/>
+                <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
+                        <Setter Property="Foreground" Value="White"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            
+            <Style x:Key="AppDataGridRowStyle" TargetType="DataGridRow">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="VerticalAlignment" Value="Stretch"/>
+            </Style>
+            
+            <Style x:Key="AppDataGridStyle" TargetType="DataGrid">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="RowBackground" Value="{StaticResource SurfaceBackground}"/>
+                <Setter Property="AlternatingRowBackground" Value="{StaticResource CardBackground}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="GridLinesVisibility" Value="None"/>
+                <Setter Property="HeadersVisibility" Value="Column"/>
+                <Setter Property="AutoGenerateColumns" Value="False"/>
+                <Setter Property="IsReadOnly" Value="True"/>
+                <Setter Property="CanUserReorderColumns" Value="False"/>
+                <Setter Property="CanUserResizeColumns" Value="True"/>
+                <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+                <Setter Property="RowStyle" Value="{StaticResource AppDataGridRowStyle}"/>
+                <Setter Property="ColumnHeaderStyle" Value="{StaticResource AppDataGridHeaderStyle}"/>
+                <Setter Property="CellStyle" Value="{StaticResource AppDataGridCellStyle}"/>
+            </Style>
+            
+            <Style x:Key="CenteredDataGridHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource AppDataGridHeaderStyle}">
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            </Style>
+            
+            <Style x:Key="CenteredDataGridCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource AppDataGridCellStyle}">
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            
+            <Style x:Key="CenteredDataGridTextStyle" TargetType="TextBlock">
+                <Setter Property="HorizontalAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="TextAlignment" Value="Center"/>
+            </Style>
+            
             <!-- Legacy Compatibility -->
             <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernPrimaryButton}"/>
             <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernSecondaryButton}"/>

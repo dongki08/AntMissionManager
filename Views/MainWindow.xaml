@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:views="clr-namespace:AntMissionManager.Views"
         Title="ANT Mission Manager"
         Height="900" Width="1400"
         WindowStartupLocation="CenterScreen"
@@ -207,17 +208,8 @@
                     <Border Grid.Row="0" Background="{StaticResource SurfaceBackground}" 
                            Padding="24" Margin="0,0,0,16">
                         <StackPanel Orientation="Horizontal">
-                            <Button Style="{StaticResource ModernPrimaryButton}"
-                                   Command="{Binding RefreshMissionsCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Refresh Missions"/>
-                                </StackPanel>
-                            </Button>
-                            
                             <Border Background="{StaticResource CardBackground}" 
                                    CornerRadius="8" 
-                                   Margin="16,0,0,0"
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
                                 <ComboBox x:Name="MissionStateFilter"
@@ -393,42 +385,7 @@
                                    BorderThickness="1">
                                 <DataGrid x:Name="MissionDataGrid"
                                          ItemsSource="{Binding Missions}"
-                                         Background="Transparent"
-                                         RowBackground="{StaticResource SurfaceBackground}"
-                                         AlternatingRowBackground="{StaticResource CardBackground}"
-                                         BorderThickness="0"
-                                         GridLinesVisibility="None"
-                                         HeadersVisibility="Column"
-                                         AutoGenerateColumns="False"
-                                         IsReadOnly="True"
-                                         CanUserReorderColumns="False"
-                                         CanUserResizeColumns="True"
-                                         Foreground="{StaticResource PrimaryText}">
-                                    <DataGrid.ColumnHeaderStyle>
-                                        <Style TargetType="DataGridColumnHeader">
-                                            <Setter Property="Background" Value="{StaticResource SurfaceBackground}"/>
-                                            <Setter Property="Foreground" Value="{StaticResource SecondaryText}"/>
-                                            <Setter Property="FontWeight" Value="SemiBold"/>
-                                            <Setter Property="FontSize" Value="12"/>
-                                            <Setter Property="Padding" Value="16,12"/>
-                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-                                        </Style>
-                                    </DataGrid.ColumnHeaderStyle>
-                                    <DataGrid.CellStyle>
-                                        <Style TargetType="DataGridCell">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="BorderThickness" Value="0"/>
-                                            <Setter Property="Padding" Value="16,8"/>
-                                            <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGrid.CellStyle>
+                                         Style="{StaticResource AppDataGridStyle}">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Mission ID" Binding="{Binding MissionId}" Width="1.3*"/>
                                         <DataGridTextColumn Header="Type" Binding="{Binding MissionType}" Width="0.9*"/>
@@ -707,42 +664,7 @@
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
                                 <DataGrid ItemsSource="{Binding Routes}"
-                                         Background="Transparent"
-                                         RowBackground="{StaticResource SurfaceBackground}"
-                                         AlternatingRowBackground="{StaticResource CardBackground}"
-                                         BorderThickness="0"
-                                         GridLinesVisibility="None"
-                                         HeadersVisibility="Column"
-                                         AutoGenerateColumns="False"
-                                         IsReadOnly="True"
-                                         CanUserReorderColumns="False"
-                                         CanUserResizeColumns="True"
-                                         Foreground="{StaticResource PrimaryText}">
-                                    <DataGrid.ColumnHeaderStyle>
-                                        <Style TargetType="DataGridColumnHeader">
-                                            <Setter Property="Background" Value="{StaticResource SurfaceBackground}"/>
-                                            <Setter Property="Foreground" Value="{StaticResource SecondaryText}"/>
-                                            <Setter Property="FontWeight" Value="SemiBold"/>
-                                            <Setter Property="FontSize" Value="12"/>
-                                            <Setter Property="Padding" Value="16,12"/>
-                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-                                        </Style>
-                                    </DataGrid.ColumnHeaderStyle>
-                                    <DataGrid.CellStyle>
-                                        <Style TargetType="DataGridCell">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="BorderThickness" Value="0"/>
-                                            <Setter Property="Padding" Value="16,8"/>
-                                            <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGrid.CellStyle>
+                                         Style="{StaticResource AppDataGridStyle}">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.5*"/>
                                         <DataGridTextColumn Header="Type" Binding="{Binding MissionType}" Width="*"/>
@@ -907,42 +829,7 @@
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
                                 <DataGrid ItemsSource="{Binding Vehicles}"
-                                         Background="Transparent"
-                                         RowBackground="{StaticResource SurfaceBackground}"
-                                         AlternatingRowBackground="{StaticResource CardBackground}"
-                                         BorderThickness="0"
-                                         GridLinesVisibility="None"
-                                         HeadersVisibility="Column"
-                                         AutoGenerateColumns="False"
-                                         IsReadOnly="True"
-                                         CanUserReorderColumns="False"
-                                         CanUserResizeColumns="True"
-                                         Foreground="{StaticResource PrimaryText}">
-                                    <DataGrid.ColumnHeaderStyle>
-                                        <Style TargetType="DataGridColumnHeader">
-                                            <Setter Property="Background" Value="{StaticResource SurfaceBackground}"/>
-                                            <Setter Property="Foreground" Value="{StaticResource SecondaryText}"/>
-                                            <Setter Property="FontWeight" Value="SemiBold"/>
-                                            <Setter Property="FontSize" Value="12"/>
-                                            <Setter Property="Padding" Value="16,12"/>
-                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-                                        </Style>
-                                    </DataGrid.ColumnHeaderStyle>
-                                    <DataGrid.CellStyle>
-                                        <Style TargetType="DataGridCell">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="BorderThickness" Value="0"/>
-                                            <Setter Property="Padding" Value="16,8"/>
-                                            <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGrid.CellStyle>
+                                         Style="{StaticResource AppDataGridStyle}">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="이름" Binding="{Binding Name}" Width="*"/>
                                         <DataGridTextColumn Header="위치 좌표" Binding="{Binding CoordinatesText}" Width="1.2*"/>
@@ -972,7 +859,7 @@
                                         <DataGridTextColumn Header="차량 상태" Binding="{Binding VehicleStateText}" Width="1.3*"/>
                                     </DataGrid.Columns>
                                     <DataGrid.RowStyle>
-                                        <Style TargetType="DataGridRow">
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource AppDataGridRowStyle}">
                                             <Setter Property="Cursor" Value="Hand"/>
                                             <EventSetter Event="MouseDoubleClick" Handler="VehicleRow_DoubleClick"/>
                                         </Style>
@@ -1005,65 +892,125 @@
                     <!-- Filter Panel -->
                     <Border Grid.Row="0" Style="{StaticResource GlassCard}" Margin="24,24,24,16">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <!-- Sort Order Filter -->
-                                <Border Background="{StaticResource SurfaceBackground}"
-                                       CornerRadius="8"
-                                       BorderBrush="{StaticResource BorderBrush}"
-                                       BorderThickness="1"
-                                       Margin="0,0,12,0">
-                                    <ComboBox x:Name="AlarmSortOrderCombo"
-                                             Background="Transparent"
-                                             BorderThickness="0"
-                                             Foreground="{StaticResource PrimaryText}"
-                                             Width="160"
-                                             Padding="12,8"
-                                             SelectedIndex="0"
-                                             SelectionChanged="AlarmSortOrder_Changed"
-                                             materialDesign:HintAssist.Hint="정렬 순서"
-                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}">
-                                        <ComboBoxItem Content="최신순 (내림차순)" Tag="desc" Foreground="{StaticResource PrimaryText}"/>
-                                        <ComboBoxItem Content="오래된순 (오름차순)" Tag="asc" Foreground="{StaticResource PrimaryText}"/>
-                                    </ComboBox>
-                                </Border>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                                <!-- Limit Filter -->
-                                <Border Background="{StaticResource SurfaceBackground}"
-                                       CornerRadius="8"
-                                       BorderBrush="{StaticResource BorderBrush}"
-                                       BorderThickness="1"
-                                       Margin="0,0,12,0">
-                                    <ComboBox x:Name="AlarmLimitCombo"
-                                             Background="Transparent"
-                                             BorderThickness="0"
-                                             Foreground="{StaticResource PrimaryText}"
-                                             Width="160"
-                                             Padding="12,8"
-                                             SelectedIndex="2"
-                                             SelectionChanged="AlarmLimit_Changed"
-                                             materialDesign:HintAssist.Hint="표시 개수"
-                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}">
-                                        <ComboBoxItem Content="10개" Tag="10" Foreground="{StaticResource PrimaryText}"/>
-                                        <ComboBoxItem Content="25개" Tag="25" Foreground="{StaticResource PrimaryText}"/>
-                                        <ComboBoxItem Content="50개" Tag="50" Foreground="{StaticResource PrimaryText}"/>
-                                        <ComboBoxItem Content="100개" Tag="100" Foreground="{StaticResource PrimaryText}"/>
-                                        <ComboBoxItem Content="200개" Tag="200" Foreground="{StaticResource PrimaryText}"/>
-                                    </ComboBox>
-                                </Border>
+                                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                    <!-- Sort Order Filter -->
+                                    <Border Background="{StaticResource SurfaceBackground}"
+                                           CornerRadius="8"
+                                           BorderBrush="{StaticResource BorderBrush}"
+                                           BorderThickness="1"
+                                           Margin="0,0,12,0">
+                                        <ComboBox x:Name="AlarmSortOrderCombo"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 Foreground="{StaticResource PrimaryText}"
+                                                 Width="160"
+                                                 Padding="12,8"
+                                                 SelectedIndex="0"
+                                                 SelectionChanged="AlarmSortOrder_Changed"
+                                                 materialDesign:HintAssist.Hint="정렬 순서"
+                                                 materialDesign:HintAssist.Foreground="{StaticResource MutedText}">
+                                            <ComboBoxItem Content="최신순 (내림차순)" Tag="desc" Foreground="{StaticResource PrimaryText}"/>
+                                            <ComboBoxItem Content="오래된순 (오름차순)" Tag="asc" Foreground="{StaticResource PrimaryText}"/>
+                                        </ComboBox>
+                                    </Border>
 
-                                <Button Content="새로고침"
-                                       Style="{StaticResource ModernPrimaryButton}"
-                                       Command="{Binding RefreshAlarmsCommand}">
-                                    <Button.ContentTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Orientation="Horizontal">
-                                                <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Margin="0,0,8,0"/>
-                                                <TextBlock Text="새로고침"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </Button.ContentTemplate>
-                                </Button>
-                            </StackPanel>
+                                    <!-- Limit Filter -->
+                                    <Border Background="{StaticResource SurfaceBackground}"
+                                           CornerRadius="8"
+                                           BorderBrush="{StaticResource BorderBrush}"
+                                           BorderThickness="1"
+                                           Margin="0,0,12,0">
+                                        <ComboBox x:Name="AlarmLimitCombo"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 Foreground="{StaticResource PrimaryText}"
+                                                 Width="160"
+                                                 Padding="12,8"
+                                                 SelectedIndex="2"
+                                                 SelectionChanged="AlarmLimit_Changed"
+                                                 materialDesign:HintAssist.Hint="표시 개수"
+                                                 materialDesign:HintAssist.Foreground="{StaticResource MutedText}">
+                                            <ComboBoxItem Content="10개" Tag="10" Foreground="{StaticResource PrimaryText}"/>
+                                            <ComboBoxItem Content="25개" Tag="25" Foreground="{StaticResource PrimaryText}"/>
+                                            <ComboBoxItem Content="50개" Tag="50" Foreground="{StaticResource PrimaryText}"/>
+                                            <ComboBoxItem Content="100개" Tag="100" Foreground="{StaticResource PrimaryText}"/>
+                                            <ComboBoxItem Content="200개" Tag="200" Foreground="{StaticResource PrimaryText}"/>
+                                        </ComboBox>
+                                    </Border>
+
+                                    <Button Content="새로고침"
+                                           Style="{StaticResource ModernPrimaryButton}"
+                                           Command="{Binding RefreshAlarmsCommand}">
+                                        <Button.ContentTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Margin="0,0,8,0"/>
+                                                    <TextBlock Text="새로고침"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </Button.ContentTemplate>
+                                    </Button>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right">
+                                    <Border Background="{StaticResource SurfaceBackground}"
+                                           CornerRadius="8"
+                                           BorderBrush="{StaticResource BorderBrush}"
+                                           BorderThickness="1"
+                                           Margin="0,0,12,0">
+                                        <ComboBox ItemsSource="{Binding AlarmSearchColumns}"
+                                                 DisplayMemberPath="DisplayName"
+                                                 SelectedValuePath="Key"
+                                                 SelectedValue="{Binding SelectedAlarmSearchColumn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 Foreground="{StaticResource PrimaryText}"
+                                                 Width="180"
+                                                 Padding="12,8"
+                                                 materialDesign:HintAssist.Hint="검색 대상"
+                                                 materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                    </Border>
+
+                                    <Border Background="{StaticResource SurfaceBackground}"
+                                           CornerRadius="8"
+                                           BorderBrush="{StaticResource BorderBrush}"
+                                           BorderThickness="1"
+                                           Margin="0,0,12,0"
+                                           Width="260">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <materialDesign:PackIcon Grid.Column="0"
+                                                                     Kind="Magnify"
+                                                                     Width="18" Height="18"
+                                                                     Margin="12,0"
+                                                                     VerticalAlignment="Center"
+                                                                     Foreground="{StaticResource MutedText}"/>
+                                            <TextBox Grid.Column="1"
+                                                     Text="{Binding AlarmSearchTerm, UpdateSourceTrigger=PropertyChanged}"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     Foreground="{StaticResource PrimaryText}"
+                                                     Padding="0,8"
+                                                     materialDesign:HintAssist.Hint="검색어 입력"
+                                                     materialDesign:HintAssist.Foreground="{StaticResource MutedText}"
+                                                     VerticalContentAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <Button Content="초기화"
+                                           Style="{StaticResource ModernSecondaryButton}"
+                                           Command="{Binding ClearAlarmSearchCommand}"/>
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
@@ -1093,54 +1040,23 @@
                                    CornerRadius="12"
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
-                                <DataGrid ItemsSource="{Binding Alarms}"
-                                         Background="Transparent"
-                                         RowBackground="{StaticResource SurfaceBackground}"
-                                         AlternatingRowBackground="{StaticResource CardBackground}"
-                                         BorderThickness="0"
-                                         GridLinesVisibility="None"
-                                         HeadersVisibility="Column"
-                                         AutoGenerateColumns="False"
-                                         IsReadOnly="True"
-                                         CanUserReorderColumns="False"
-                                         CanUserResizeColumns="True"
-                                         Foreground="{StaticResource PrimaryText}"
-                                         RowHeight="45">
-                                    <DataGrid.ColumnHeaderStyle>
-                                        <Style TargetType="DataGridColumnHeader">
-                                            <Setter Property="Background" Value="{StaticResource SurfaceBackground}"/>
-                                            <Setter Property="Foreground" Value="{StaticResource SecondaryText}"/>
-                                            <Setter Property="FontWeight" Value="SemiBold"/>
-                                            <Setter Property="FontSize" Value="13"/>
-                                            <Setter Property="Padding" Value="16,14"/>
-                                            <Setter Property="Height" Value="45"/>
-                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-                                        </Style>
-                                    </DataGrid.ColumnHeaderStyle>
-                                    <DataGrid.CellStyle>
-                                        <Style TargetType="DataGridCell">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="BorderThickness" Value="0"/>
-                                            <Setter Property="Padding" Value="16,12"/>
-                                            <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
-                                            <Setter Property="FontSize" Value="13"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource PrimaryBrush}"/>
-                                                    <Setter Property="Foreground" Value="White"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGrid.CellStyle>
+                                <DataGrid ItemsSource="{Binding AlarmView}"
+                                         Style="{StaticResource AppDataGridStyle}"
+                                         RowHeight="45"
+                                         ColumnHeaderStyle="{StaticResource CenteredDataGridHeaderStyle}"
+                                         CellStyle="{StaticResource CenteredDataGridCellStyle}"
+                                         Sorting="AlarmDataGrid_Sorting"
+                                         Loaded="AlarmDataGrid_Loaded">
                                     <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="상태" Width="100">
+                                        <DataGridTemplateColumn Header="상태" Width="100" SortMemberPath="State">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border Background="{Binding StateColor}"
                                                            CornerRadius="12"
                                                            Padding="10,6"
-                                                           HorizontalAlignment="Center">
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           >
                                                         <TextBlock Text="{Binding StateText}"
                                                                   Foreground="White"
                                                                   FontSize="12"
@@ -1150,24 +1066,37 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="소스 타입" Binding="{Binding SourceTypeText}" Width="100"/>
-                                        <DataGridTextColumn Header="소스 ID" Binding="{Binding SourceId}" Width="120"/>
-                                        <DataGridTextColumn Header="이벤트 이름" Binding="{Binding EventDisplayName}" Width="1.5*"/>
-                                        <DataGridTextColumn Header="횟수" Binding="{Binding EventCount}" Width="70">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="TextAlignment" Value="Center"/>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-                                        <DataGridTextColumn Header="발생 시간" Binding="{Binding TimestampText}" Width="1.3*"/>
-                                        <DataGridTextColumn Header="첫 발생 시간" Binding="{Binding FirstEventAtText}" Width="1.3*"/>
-                                        <DataGridTextColumn Header="마지막 발생" Binding="{Binding LastEventAtText}" Width="1.3*"/>
+                                        <DataGridTextColumn Header="소스 타입" Binding="{Binding SourceTypeText}" Width="100" ElementStyle="{StaticResource CenteredDataGridTextStyle}" SortMemberPath="SourceTypeText"/>
+                                        <DataGridTextColumn Header="소스 ID" Binding="{Binding SourceId}" Width="120" ElementStyle="{StaticResource CenteredDataGridTextStyle}" SortMemberPath="SourceId"/>
+                                        <DataGridTextColumn Header="이벤트 이름" Binding="{Binding EventDisplayName}" Width="1.5*" SortMemberPath="EventDisplayName" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="횟수" Binding="{Binding EventCount}" Width="70" ElementStyle="{StaticResource CenteredDataGridTextStyle}" HeaderStyle="{StaticResource CenteredDataGridHeaderStyle}" SortMemberPath="EventCount"/>
+                                        <DataGridTextColumn Header="발생 시간" Binding="{Binding TimestampText}" Width="1.3*" SortMemberPath="Timestamp" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="첫 발생 시간" Binding="{Binding FirstEventAtText}" Width="1.3*" SortMemberPath="FirstEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="마지막 발생" Binding="{Binding LastEventAtText}" Width="1.3*" SortMemberPath="LastEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Border>
                         </Grid>
                     </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Map View Tab -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Map" Width="18" Height="18"
+                                               Foreground="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
+                        <TextBlock Text="Map View"
+                                  FontSize="14" FontWeight="SemiBold"
+                                  Foreground="{StaticResource PrimaryText}"/>
+                    </StackPanel>
+                </TabItem.Header>
+
+                <Grid Margin="0" Background="{StaticResource CardBackground}">
+                    <views:MapView x:Name="MapViewControl"
+                                   MapData="{Binding MapData}"
+                                   Vehicles="{Binding Vehicles}"/>
                 </Grid>
             </TabItem>
         </TabControl>

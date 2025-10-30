@@ -1,11 +1,17 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 using AntMissionManager.Models;
 using AntMissionManager.Services;
 using AntMissionManager.Views;
 using Microsoft.Win32;
-using System.Linq;
 
 namespace AntMissionManager.ViewModels;
 
@@ -41,16 +47,47 @@ public class MainViewModel : ViewModelBase
     private string _selectedInsertNode = string.Empty;
     private ObservableCollection<NodeInfo> _availableNodes = new();
 
+    // Map View Properties
+    private List<MapData> _mapData = new();
+
+    private const string TimestampPropertyName = nameof(AlarmInfo.Timestamp);
+
     // Alarm Log Properties
     private ObservableCollection<AlarmInfo> _alarms = new();
+    private readonly CollectionViewSource _alarmViewSource;
+    private readonly List<SortDescription> _alarmSortDescriptions = new();
     private int _alarmLimit = 50;
     private bool _alarmSortAscending = false;
-    private System.Timers.Timer? _alarmRefreshTimer;
+    private string _alarmSearchTerm = string.Empty;
+    private string _selectedAlarmSearchColumn = string.Empty;
+    private System.Timers.Timer? _realtimeRefreshTimer;
+    private bool _isRealtimeRefreshInProgress;
 
     public MainViewModel()
     {
         _antApiService = AntApiService.Instance;
         _fileService = new FileService();
+
+        _alarmViewSource = new CollectionViewSource { Source = _alarms };
+        _alarmViewSource.Filter += OnAlarmFilter;
+
+        AlarmSearchColumns = new ObservableCollection<AlarmSearchOption>(new[]
+        {
+            new AlarmSearchOption("전체", "All"),
+            new AlarmSearchOption("상태", nameof(AlarmInfo.StateText)),
+            new AlarmSearchOption("타입", nameof(AlarmInfo.SourceTypeText)),
+            new AlarmSearchOption("소스 ID", nameof(AlarmInfo.SourceId)),
+            new AlarmSearchOption("이벤트 이름", nameof(AlarmInfo.EventDisplayName)),
+            new AlarmSearchOption("메시지", nameof(AlarmInfo.AlarmMessage)),
+            new AlarmSearchOption("횟수", nameof(AlarmInfo.EventCount)),
+            new AlarmSearchOption("최초 발생", nameof(AlarmInfo.FirstEventAtText)),
+            new AlarmSearchOption("최근 발생", nameof(AlarmInfo.LastEventAtText)),
+            new AlarmSearchOption("발생 시간", nameof(AlarmInfo.TimestampText))
+        });
+
+        _selectedAlarmSearchColumn = AlarmSearchColumns.First().Key;
+        RefreshAlarmFilter();
+        ApplyDefaultAlarmSort(force: true);
 
         InitializeCommands();
         LoadInitialData();
@@ -72,7 +109,7 @@ public class MainViewModel : ViewModelBase
             _ = LoadInitialServerData();
 
             // 알람 자동 갱신 타이머 시작
-            StartAlarmRefreshTimer();
+            StartRealtimeRefreshTimer();
         }
         else
         {
@@ -81,7 +118,7 @@ public class MainViewModel : ViewModelBase
             StatusText = "서버에 연결되지 않았습니다";
 
             // 타이머 중지
-            StopAlarmRefreshTimer();
+            StopRealtimeRefreshTimer();
         }
     }
 
@@ -89,8 +126,10 @@ public class MainViewModel : ViewModelBase
     {
         try
         {
+            await ExecuteRefreshMap();
             await ExecuteRefreshNodes();
             await ExecuteRefreshVehicles();
+            await ExecuteRefreshMissions();
             await ExecuteRefreshAlarms();
         }
         catch (Exception ex)
@@ -99,33 +138,48 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private void StartAlarmRefreshTimer()
+    private void StartRealtimeRefreshTimer()
     {
-        StopAlarmRefreshTimer();
+        StopRealtimeRefreshTimer();
 
-        _alarmRefreshTimer = new System.Timers.Timer(1000); // 1초
-        _alarmRefreshTimer.Elapsed += async (sender, e) =>
-        {
-            try
-            {
-                await ExecuteRefreshAlarms();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"알람 자동 갱신 오류: {ex.Message}");
-            }
-        };
-        _alarmRefreshTimer.AutoReset = true;
-        _alarmRefreshTimer.Start();
+        _realtimeRefreshTimer = new System.Timers.Timer(1000); // 1초
+        _realtimeRefreshTimer.Elapsed += async (_, _) => await RefreshRealtimeDataAsync();
+        _realtimeRefreshTimer.AutoReset = true;
+        _realtimeRefreshTimer.Start();
     }
 
-    private void StopAlarmRefreshTimer()
+    private void StopRealtimeRefreshTimer()
     {
-        if (_alarmRefreshTimer != null)
+        if (_realtimeRefreshTimer != null)
         {
-            _alarmRefreshTimer.Stop();
-            _alarmRefreshTimer.Dispose();
-            _alarmRefreshTimer = null;
+            _realtimeRefreshTimer.Stop();
+            _realtimeRefreshTimer.Dispose();
+            _realtimeRefreshTimer = null;
+        }
+    }
+
+    private async Task RefreshRealtimeDataAsync()
+    {
+        if (_isRealtimeRefreshInProgress)
+        {
+            return;
+        }
+
+        _isRealtimeRefreshInProgress = true;
+
+        try
+        {
+            await RefreshMissionsAsync(isAutoRefresh: true);
+            await RefreshVehiclesAsync(isAutoRefresh: true);
+            await RefreshAlarmsAsync(isAutoRefresh: true);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"실시간 데이터 갱신 오류: {ex.Message}");
+        }
+        finally
+        {
+            _isRealtimeRefreshInProgress = false;
         }
     }
 
@@ -258,8 +312,20 @@ public class MainViewModel : ViewModelBase
     public ObservableCollection<AlarmInfo> Alarms
     {
         get => _alarms;
-        set => SetProperty(ref _alarms, value);
+        set
+        {
+            if (SetProperty(ref _alarms, value))
+            {
+                _alarmViewSource.Source = _alarms;
+                RefreshAlarmFilter();
+                UpdateAlarmSort(force: true);
+            }
+        }
     }
+
+    public ICollectionView AlarmView => _alarmViewSource.View;
+
+    public ObservableCollection<AlarmSearchOption> AlarmSearchColumns { get; }
 
     public int AlarmLimit
     {
@@ -270,7 +336,46 @@ public class MainViewModel : ViewModelBase
     public bool AlarmSortAscending
     {
         get => _alarmSortAscending;
-        set => SetProperty(ref _alarmSortAscending, value);
+        set
+        {
+            if (SetProperty(ref _alarmSortAscending, value))
+            {
+                ApplyDefaultAlarmSort(force: true);
+            }
+        }
+    }
+
+    public string SelectedAlarmSearchColumn
+    {
+        get => _selectedAlarmSearchColumn;
+        set
+        {
+            if (SetProperty(ref _selectedAlarmSearchColumn, value))
+            {
+                RefreshAlarmFilter();
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public string AlarmSearchTerm
+    {
+        get => _alarmSearchTerm;
+        set
+        {
+            if (SetProperty(ref _alarmSearchTerm, value))
+            {
+                RefreshAlarmFilter();
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    // Map View
+    public List<MapData> MapData
+    {
+        get => _mapData;
+        set => SetProperty(ref _mapData, value);
     }
 
     #endregion
@@ -297,6 +402,7 @@ public class MainViewModel : ViewModelBase
     public ICommand ConnectToServerCommand { get; private set; } = null!;
 
     public ICommand RefreshAlarmsCommand { get; private set; } = null!;
+    public ICommand ClearAlarmSearchCommand { get; private set; } = null!;
 
     private void InitializeCommands()
     {
@@ -316,11 +422,12 @@ public class MainViewModel : ViewModelBase
         InsertVehicleCommand = new AsyncRelayCommand(ExecuteInsertVehicle, CanExecuteVehicleCommand);
         ExtractVehicleCommand = new AsyncRelayCommand(ExecuteExtractVehicle, CanExecuteVehicleCommand);
         RefreshVehiclesCommand = new AsyncRelayCommand(ExecuteRefreshVehicles);
-        RefreshNodesCommand = new AsyncRelayCommand(ExecuteRefreshNodes);
-        ConnectToServerCommand = new AsyncRelayCommand(ExecuteConnectToServer);
+    RefreshNodesCommand = new AsyncRelayCommand(ExecuteRefreshNodes);
+    ConnectToServerCommand = new AsyncRelayCommand(ExecuteConnectToServer);
 
-        RefreshAlarmsCommand = new AsyncRelayCommand(ExecuteRefreshAlarms);
-    }
+    RefreshAlarmsCommand = new AsyncRelayCommand(ExecuteRefreshAlarms);
+    ClearAlarmSearchCommand = new RelayCommand(_ => ClearAlarmSearch(), _ => CanClearAlarmSearch());
+}
 
     #endregion
 
@@ -337,7 +444,7 @@ public class MainViewModel : ViewModelBase
         if (result)
         {
             // 타이머 중지
-            StopAlarmRefreshTimer();
+            StopRealtimeRefreshTimer();
 
             var loginWindow = new LoginWindow();
             loginWindow.Show();
@@ -353,14 +460,19 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task ExecuteRefreshMissions()
+    private Task ExecuteRefreshMissions() => RefreshMissionsAsync(isAutoRefresh: false);
+
+    private async Task RefreshMissionsAsync(bool isAutoRefresh)
     {
-        StatusText = "미션 정보 새로고침 중...";
-        
+        if (!isAutoRefresh)
+        {
+            StatusText = "미션 정보 새로고침 중...";
+        }
+
         try
         {
             var missions = await _antApiService.GetAllMissionsAsync();
-            
+
             Application.Current.Dispatcher.Invoke(() =>
             {
                 Missions.Clear();
@@ -368,15 +480,25 @@ public class MainViewModel : ViewModelBase
                 {
                     Missions.Add(mission);
                 }
-                
+
                 UpdateMissionStatistics();
             });
-            
-            StatusText = "미션 정보 업데이트 완료";
+
+            if (!isAutoRefresh)
+            {
+                StatusText = "미션 정보 업데이트 완료";
+            }
         }
         catch (Exception ex)
         {
-            StatusText = $"미션 새로고침 실패: {ex.Message}";
+            if (!isAutoRefresh)
+            {
+                StatusText = $"미션 새로고침 실패: {ex.Message}";
+            }
+            else
+            {
+                Debug.WriteLine($"미션 자동 갱신 오류: {ex.Message}");
+            }
         }
     }
 
@@ -595,14 +717,19 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task ExecuteRefreshVehicles()
+    private Task ExecuteRefreshVehicles() => RefreshVehiclesAsync(isAutoRefresh: false);
+
+    private async Task RefreshVehiclesAsync(bool isAutoRefresh)
     {
-        StatusText = "차량 정보 새로고침 중...";
-        
+        if (!isAutoRefresh)
+        {
+            StatusText = "차량 정보 새로고침 중...";
+        }
+
         try
         {
             var vehicles = await _antApiService.GetAllVehiclesAsync();
-            
+
             Application.Current.Dispatcher.Invoke(() =>
             {
                 Vehicles.Clear();
@@ -611,12 +738,22 @@ public class MainViewModel : ViewModelBase
                     Vehicles.Add(vehicle);
                 }
             });
-            
-            StatusText = "차량 정보 업데이트 완료";
+
+            if (!isAutoRefresh)
+            {
+                StatusText = "차량 정보 업데이트 완료";
+            }
         }
         catch (Exception ex)
         {
-            StatusText = $"차량 새로고침 실패: {ex.Message}";
+            if (!isAutoRefresh)
+            {
+                StatusText = $"차량 새로고침 실패: {ex.Message}";
+            }
+            else
+            {
+                Debug.WriteLine($"차량 자동 갱신 오류: {ex.Message}");
+            }
         }
     }
 
@@ -661,10 +798,11 @@ public class MainViewModel : ViewModelBase
             // 연결 성공 시 기본 데이터 로드
             await ExecuteRefreshNodes();
             await ExecuteRefreshVehicles();
+            await ExecuteRefreshMissions();
             await ExecuteRefreshAlarms();
 
-            // 알람 자동 갱신 타이머 시작
-            StartAlarmRefreshTimer();
+            // 실시간 자동 갱신 타이머 시작
+            StartRealtimeRefreshTimer();
         }
         else
         {
@@ -674,7 +812,9 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task ExecuteRefreshAlarms()
+    private Task ExecuteRefreshAlarms() => RefreshAlarmsAsync(isAutoRefresh: false);
+
+    private async Task RefreshAlarmsAsync(bool isAutoRefresh)
     {
         try
         {
@@ -687,11 +827,71 @@ public class MainViewModel : ViewModelBase
                 {
                     Alarms.Add(alarm);
                 }
+
+                RefreshAlarmFilter();
+                UpdateAlarmSort(force: true);
             });
         }
         catch (Exception ex)
         {
-            StatusText = $"알람 새로고침 실패: {ex.Message}";
+            if (!isAutoRefresh)
+            {
+                StatusText = $"알람 새로고침 실패: {ex.Message}";
+            }
+            else
+            {
+                Debug.WriteLine($"알람 자동 갱신 오류: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ExecuteRefreshMap()
+    {
+        StatusText = "맵 정보 로드 중...";
+
+        try
+        {
+            var mapDataList = await _antApiService.GetMapDataAsync();
+
+            if (mapDataList == null)
+            {
+                Services.MapLogger.LogError("mapDataList is NULL!");
+                StatusText = "맵 정보가 null입니다";
+                return;
+            }
+
+            if (mapDataList.Count == 0)
+            {
+                Services.MapLogger.LogError("mapDataList is EMPTY!");
+                StatusText = "맵 정보가 비어있습니다";
+                return;
+            }
+
+            Services.MapLogger.LogSection("ViewModel - Map Data Summary");
+            foreach (var map in mapDataList)
+            {
+                Services.MapLogger.Log($"Map: {map.Alias} (ID: {map.Id}) - {map.Layers.Count} layers");
+                foreach (var layer in map.Layers)
+                {
+                    Services.MapLogger.Log($"  Layer '{layer.Name}': {layer.Nodes.Count} nodes, {layer.Links.Count} links");
+                }
+            }
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Services.MapLogger.Log($"Setting MapData property with {mapDataList.Count} maps");
+                MapData = mapDataList;
+                Services.MapLogger.Log($"MapData property set successfully");
+            });
+
+            var logPath = Services.MapLogger.GetLogFilePath();
+            StatusText = $"맵 로드 완료 ({mapDataList.Count}개) - 로그: {logPath}";
+            Services.MapLogger.Log($"Status: {StatusText}");
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"맵 정보 로드 실패: {ex.Message}";
+            Services.MapLogger.LogError("Map load failed", ex);
         }
     }
 
@@ -720,5 +920,253 @@ public class MainViewModel : ViewModelBase
         CompletedMissions = Missions.Count(m => m.NavigationState == 4); // Completed
     }
 
+    private void ClearAlarmSearch()
+    {
+        var defaultOption = AlarmSearchColumns.FirstOrDefault();
+        if (defaultOption != null)
+        {
+            SelectedAlarmSearchColumn = defaultOption.Key;
+        }
+
+        AlarmSearchTerm = string.Empty;
+    }
+
+    private bool CanClearAlarmSearch()
+    {
+        var defaultOption = AlarmSearchColumns.FirstOrDefault();
+        var isDefaultColumn = defaultOption == null || string.Equals(SelectedAlarmSearchColumn, defaultOption.Key, StringComparison.Ordinal);
+        return !string.IsNullOrWhiteSpace(AlarmSearchTerm) || !isDefaultColumn;
+    }
+
+    private void RefreshAlarmFilter()
+    {
+        AlarmView?.Refresh();
+    }
+
+    public void ApplyAlarmSort(IReadOnlyList<SortDescription> sortDescriptions)
+    {
+        if (sortDescriptions == null || sortDescriptions.Count == 0)
+        {
+            ApplyDefaultAlarmSort(force: true);
+            return;
+        }
+
+        var sorts = new List<SortDescription>(sortDescriptions.Count + 1);
+        foreach (var description in sortDescriptions)
+        {
+            if (string.IsNullOrWhiteSpace(description.PropertyName))
+            {
+                continue;
+            }
+
+            sorts.Add(new SortDescription(description.PropertyName, description.Direction));
+        }
+
+        if (!sorts.Any(sd => string.Equals(sd.PropertyName, TimestampPropertyName, StringComparison.Ordinal)))
+        {
+            var timestampDirection = _alarmSortAscending
+                ? ListSortDirection.Ascending
+                : ListSortDirection.Descending;
+
+            sorts.Add(new SortDescription(TimestampPropertyName, timestampDirection));
+        }
+
+        if (sorts.Count > 0 && string.Equals(sorts[0].PropertyName, TimestampPropertyName, StringComparison.Ordinal))
+        {
+            var newAscending = sorts[0].Direction == ListSortDirection.Ascending;
+            if (_alarmSortAscending != newAscending)
+            {
+                _alarmSortAscending = newAscending;
+                OnPropertyChanged(nameof(AlarmSortAscending));
+            }
+        }
+
+        SetAlarmSortDescriptions(sorts, force: true);
+    }
+
+    public void ApplyAlarmColumnSort(string propertyName, ListSortDirection direction)
+    {
+        if (string.IsNullOrWhiteSpace(propertyName))
+        {
+            return;
+        }
+
+        ApplyAlarmSort(new List<SortDescription>
+        {
+            new SortDescription(propertyName, direction)
+        });
+    }
+
+    private void ApplyDefaultAlarmSort(bool force)
+    {
+        var direction = _alarmSortAscending
+            ? ListSortDirection.Ascending
+            : ListSortDirection.Descending;
+
+        SetAlarmSortDescriptions(new[]
+        {
+            new SortDescription(TimestampPropertyName, direction)
+        }, force);
+    }
+
+    private void SetAlarmSortDescriptions(IEnumerable<SortDescription> sortDescriptions, bool force)
+    {
+        _alarmSortDescriptions.Clear();
+
+        foreach (var sortDescription in sortDescriptions)
+        {
+            if (string.IsNullOrWhiteSpace(sortDescription.PropertyName))
+            {
+                continue;
+            }
+
+            if (_alarmSortDescriptions.Any(existing =>
+                    string.Equals(existing.PropertyName, sortDescription.PropertyName, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            _alarmSortDescriptions.Add(new SortDescription(sortDescription.PropertyName, sortDescription.Direction));
+        }
+
+        if (_alarmSortDescriptions.Count == 0)
+        {
+            ApplyDefaultAlarmSort(force: true);
+            return;
+        }
+
+        UpdateAlarmSort(force);
+    }
+
+    private void UpdateAlarmSort(bool force = false)
+    {
+        var view = AlarmView;
+        if (view == null)
+        {
+            return;
+        }
+
+        using (view.DeferRefresh())
+        {
+            if (force)
+            {
+                view.SortDescriptions.Clear();
+            }
+
+            for (var index = 0; index < _alarmSortDescriptions.Count; index++)
+            {
+                var desired = _alarmSortDescriptions[index];
+                var existingIndex = -1;
+
+                for (int i = 0; i < view.SortDescriptions.Count; i++)
+                {
+                    if (string.Equals(view.SortDescriptions[i].PropertyName, desired.PropertyName, StringComparison.Ordinal))
+                    {
+                        existingIndex = i;
+                        break;
+                    }
+                }
+
+                if (existingIndex >= 0)
+                {
+                    var needsDirectionUpdate = view.SortDescriptions[existingIndex].Direction != desired.Direction;
+                    var needsReorder = existingIndex != index;
+
+                    if (needsDirectionUpdate || needsReorder)
+                    {
+                        view.SortDescriptions.RemoveAt(existingIndex);
+                        view.SortDescriptions.Insert(Math.Min(index, view.SortDescriptions.Count), desired);
+                    }
+                }
+                else
+                {
+                    view.SortDescriptions.Insert(Math.Min(index, view.SortDescriptions.Count), desired);
+                }
+            }
+
+            if (force)
+            {
+                for (int i = view.SortDescriptions.Count - 1; i >= 0; i--)
+                {
+                    if (!_alarmSortDescriptions.Any(sd =>
+                            string.Equals(sd.PropertyName, view.SortDescriptions[i].PropertyName, StringComparison.Ordinal)))
+                    {
+                        view.SortDescriptions.RemoveAt(i);
+                    }
+                }
+            }
+        }
+    }
+
+    private void OnAlarmFilter(object? sender, FilterEventArgs e)
+    {
+        if (e.Item is not AlarmInfo alarm)
+        {
+            e.Accepted = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AlarmSearchTerm))
+        {
+            e.Accepted = true;
+            return;
+        }
+
+        var term = AlarmSearchTerm.Trim();
+        var comparison = StringComparison.OrdinalIgnoreCase;
+
+        if (string.Equals(SelectedAlarmSearchColumn, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            e.Accepted = ContainsTerm(alarm.StateText, term, comparison)
+                         || ContainsTerm(alarm.SourceTypeText, term, comparison)
+                         || ContainsTerm(alarm.SourceId, term, comparison)
+                         || ContainsTerm(alarm.EventDisplayName, term, comparison)
+                         || ContainsTerm(alarm.AlarmMessage, term, comparison)
+                         || ContainsTerm(alarm.EventCount.ToString(), term, comparison)
+                         || ContainsTerm(alarm.FirstEventAtText, term, comparison)
+                         || ContainsTerm(alarm.LastEventAtText, term, comparison)
+                         || ContainsTerm(alarm.TimestampText, term, comparison);
+            return;
+        }
+
+        var value = GetAlarmValueByKey(alarm, SelectedAlarmSearchColumn);
+        e.Accepted = ContainsTerm(value, term, comparison);
+    }
+
+    private static bool ContainsTerm(string? source, string term, StringComparison comparison)
+    {
+        return !string.IsNullOrEmpty(source) && source.IndexOf(term, comparison) >= 0;
+    }
+
+    private static string? GetAlarmValueByKey(AlarmInfo alarm, string key)
+    {
+        return key switch
+        {
+            nameof(AlarmInfo.StateText) => alarm.StateText,
+            nameof(AlarmInfo.SourceTypeText) => alarm.SourceTypeText,
+            nameof(AlarmInfo.SourceId) => alarm.SourceId,
+            nameof(AlarmInfo.EventDisplayName) => alarm.EventDisplayName,
+            nameof(AlarmInfo.AlarmMessage) => alarm.AlarmMessage,
+            nameof(AlarmInfo.EventCount) => alarm.EventCount.ToString(),
+            nameof(AlarmInfo.FirstEventAtText) => alarm.FirstEventAtText,
+            nameof(AlarmInfo.LastEventAtText) => alarm.LastEventAtText,
+            nameof(AlarmInfo.TimestampText) => alarm.TimestampText,
+            nameof(AlarmInfo.Uuid) => alarm.Uuid,
+            _ => null
+        };
+    }
+
     #endregion
+}
+
+public sealed class AlarmSearchOption
+{
+    public AlarmSearchOption(string displayName, string key)
+    {
+        DisplayName = displayName;
+        Key = key;
+    }
+
+    public string DisplayName { get; }
+    public string Key { get; }
 }

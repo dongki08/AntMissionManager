@@ -1,5 +1,8 @@
+using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using AntMissionManager.Models;
 using AntMissionManager.ViewModels;
@@ -71,6 +74,78 @@ public partial class MainWindow : Window
             var detailWindow = new VehicleDetailWindow(vehicle);
             detailWindow.ShowDialog();
         }
+    }
+
+    private void AlarmDataGrid_Sorting(object sender, DataGridSortingEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        if (sender is not DataGrid dataGrid)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        var sortMemberPath = GetSortMemberPath(e.Column);
+        if (string.IsNullOrWhiteSpace(sortMemberPath))
+        {
+            return;
+        }
+
+        var newDirection = e.Column.SortDirection == ListSortDirection.Ascending
+            ? ListSortDirection.Descending
+            : ListSortDirection.Ascending;
+
+        vm.ApplyAlarmColumnSort(sortMemberPath, newDirection);
+
+        e.Column.SortDirection = newDirection;
+
+        foreach (var column in dataGrid.Columns)
+        {
+            if (!ReferenceEquals(column, e.Column))
+            {
+                column.SortDirection = null;
+            }
+        }
+    }
+
+    private void AlarmDataGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not DataGrid dataGrid || DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        var sortDirection = vm.AlarmSortAscending ? ListSortDirection.Ascending : ListSortDirection.Descending;
+        foreach (var column in dataGrid.Columns)
+        {
+            if (string.Equals(GetSortMemberPath(column), nameof(AlarmInfo.Timestamp), StringComparison.Ordinal))
+            {
+                column.SortDirection = sortDirection;
+            }
+            else
+            {
+                column.SortDirection = null;
+            }
+        }
+    }
+
+    private static string? GetSortMemberPath(DataGridColumn column)
+    {
+        var sortMemberPath = column.SortMemberPath;
+        if (string.IsNullOrWhiteSpace(sortMemberPath) && column is DataGridBoundColumn boundColumn)
+        {
+            if (boundColumn.Binding is Binding binding && binding.Path != null)
+            {
+                sortMemberPath = binding.Path.Path;
+            }
+        }
+
+        return sortMemberPath;
     }
 
     private void AlarmSortOrder_Changed(object sender, SelectionChangedEventArgs e)
