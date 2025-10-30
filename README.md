@@ -48,20 +48,59 @@ WPF .NET 8.0 기반 ANT (Autonomous Navigation Technology) 미션 관리 시스�
 
 ```
 AntMissionManager/
-├── Views/                          # XAML 뷰 파일
-│   ├── LoginWindow.xaml           # 로그인 화면
-│   ├── MainWindow.xaml            # 메인 대시보드
-│   └── Common/                    # 공통 컴포넌트
-│       └── MessageDialog.xaml     # 메시지 다이얼로그
-├── Models/                        # 데이터 모델
-│   ├── MissionRoute.cs           # 미션 라우터 모델
-│   ├── Vehicle.cs                # 차량 모델
-│   └── MissionInfo.cs            # 미션 정보 모델
-├── Services/                      # 서비스 레이어
-│   ├── FileService.cs            # 파일 I/O 서비스
-│   └── AntApiService.cs          # ANT API 통신 서비스
-└── App.xaml                      # 애플리케이션 리소스
+├── AntMissionManager.csproj        # 프로젝트 파일 및 패키지 참조
+├── App.xaml                        # 전역 리소스/스타일 정의
+├── App.xaml.cs                     # 애플리케이션 시작 진입점
+├── Models/                         # 도메인/DTO 클래스
+│   ├── AlarmInfo.cs                # 알람 로그 정보 및 상태 매핑
+│   ├── MissionInfo.cs              # 미션 현황 데이터 모델
+│   ├── MissionRoute.cs             # 노드 경로 및 미션 타입 정의
+│   ├── NodeInfo.cs                 # ANT 노드(포인트) 정보
+│   └── Vehicle.cs                  # 차량 상태, 배터리, 좌표 등 상세 정보
+├── Services/                       # 백엔드/API/파일 서비스
+│   ├── AntApiService.cs            # 로그인, 차량/미션/알람 REST API 호출
+│   └── FileService.cs              # 미션 라우터 CSV Import/Export
+├── Utilities/                      # 보조 유틸리티
+│   ├── Converters.cs               # 배터리/상태 → 색상/가시성 변환기
+│   └── DialogService.cs            # 커스텀 메시지/파일 다이얼로그 헬퍼
+├── ViewModels/                     # MVVM ViewModel 계층
+│   ├── LoginViewModel.cs           # 로그인 로직 및 서버 연결 초기화
+│   ├── MainViewModel.cs            # 대시보드·라우터·차량 관리 상태 관리
+│   ├── RelayCommand.cs             # ICommand 래퍼
+│   └── ViewModelBase.cs            # INotifyPropertyChanged 기본 구현
+├── Views/                          # XAML 뷰 및 코드 비하인드
+│   ├── CommonDialogWindow.xaml     # 공용 다이얼로그 쉘
+│   ├── CommonDialogWindow.xaml.cs
+│   ├── LoginWindow.xaml            # 로그인 화면
+│   ├── LoginWindow.xaml.cs
+│   ├── MainWindow.xaml             # 메인 대시보드/탭 UI
+│   ├── MainWindow.xaml.cs
+│   ├── VehicleDetailWindow.xaml    # 차량 상세 팝업
+│   ├── VehicleDetailWindow.xaml.cs
+│   └── Common/
+│       ├── MessageDialog.xaml      # Material 스타일 메시지 다이얼로그
+│       └── MessageDialog.xaml.cs
+├── bin/                            # 빌드 산출물 (자동 생성)
+└── obj/                            # 중간 빌드 결과 (자동 생성)
 ```
+
+### 디렉터리별 설명
+
+| 경로 | 주요 내용 |
+|------|-----------|
+| `Models/` | ANT 서버에서 내려오는 차량·미션·알람 데이터를 표현하는 POCO 모델 모음. |
+| `Services/` | 싱글톤 `AntApiService`로 REST 통신을 캡슐화하고, `FileService`로 CSV 입출력을 담당. |
+| `Utilities/` | WPF 전용 컨버터와 커스텀 다이얼로그 서비스 등 View에서 재사용되는 헬퍼. |
+| `ViewModels/` | MVVM 패턴의 핵심 로직. 로그인 이후 메인 탭 상태 관리, 커맨드 바인딩 제공. |
+| `Views/` | Material Design 테마를 적용한 XAML 화면과 코드 비하인드. 공통 메시지 다이얼로그 포함. |
+| `bin/`, `obj/` | .NET 빌드시 자동 생성되는 출력/캐시 폴더. 배포 소스에서 제외. |
+
+### 주요 흐름
+
+1. `App.xaml.cs`가 실행되면서 `Views/LoginWindow`를 최초로 띄워 로그인 절차를 시작합니다.
+2. `LoginViewModel`이 `AntApiService`를 통해 토큰을 발급받고 연결 상태를 공유합니다.
+3. 로그인 성공 시 `MainWindow`가 열리고, `MainViewModel`이 미션/차량/알람 데이터를 주기적으로 동기화합니다.
+4. `Utilities/DialogService`와 `Views/Common/*` 구성 요소가 사용자 피드백(메시지, 파일 선택)을 담당합니다.
 
 ## 설치 및 실행
 

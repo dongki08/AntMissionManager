@@ -1,0 +1,499 @@
+<Window x:Class="AntMissionManager.Views.VehicleDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="차량 상세 정보"
+        Height="700" Width="900"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+
+    <Border CornerRadius="16" Background="{StaticResource DarkBackground}" BorderBrush="#475569" BorderThickness="0.8" >
+        <Border.Effect>
+            <DropShadowEffect Color="Black" Direction="270" ShadowDepth="10" Opacity="0.5" BlurRadius="30"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="60"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar -->
+            <Border Grid.Row="0" Background="{StaticResource CardBackground}" CornerRadius="16,16,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid Margin="20,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="CarInfo" Width="24" Height="24" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,12,0"/>
+                        <TextBlock Text="차량 상세 정보"
+                                  FontSize="18"
+                                  FontWeight="SemiBold"
+                                  Foreground="{StaticResource PrimaryText}"
+                                  VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Button Content="✕"
+                           Width="35" Height="35"
+                           Background="Transparent"
+                           BorderThickness="0"
+                           Foreground="{StaticResource MutedText}"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Cursor="Hand"
+                           Click="CloseButton_Click"
+                           HorizontalAlignment="Right">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="17.5">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource ErrorBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Content -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="24">
+                    <!-- 기본 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="기본 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="차량 이름 (name)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="IP 주소 (ipaddress)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding IpAddress}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="포트 번호 (port)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Port}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="시뮬레이션 모드 (issimulated)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding IsSimulated}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="운영 상태 (operatingstate)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding OperatingStateText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="차량 상태 (vehicle.state)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding VehicleStateText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="청소/순찰 기능 (coverage)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Coverage}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="7" Grid.Column="0" Text="전방향 이동 (isOmni)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding IsOmni}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="8" Grid.Column="0" Text="강제 충전 (forceCharge)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ForceCharge}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="9" Grid.Column="0" Text="차량 타입 (vehicle.type)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding VehicleType}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="10" Grid.Column="0" Text="서버 연결 상태 (connection.ok)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding ConnectionOk}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="11" Grid.Column="0" Text="마지막 업데이트 (timestamp)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding LastUpdate, StringFormat='yyyy-MM-dd HH:mm:ss'}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 위치 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="위치 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="현재 위치 노드 (currentnode.name)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentNodeName}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="현재 노드 ID (currentnode.id)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentNodeId}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="좌표 X, Y (location.coord)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CoordinatesText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="오차 (location.uncertainty)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding UncertaintyText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="방향 (location.course)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding CourseText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="맵 이름 (location.map)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MapName}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="그룹 (location.group)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding GroupName}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="7" Grid.Column="0" Text="이동 거리 (traveleddistance)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding TraveledDistanceText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 미션 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="미션 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="미션 ID (missionid)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MissionId}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="미션 From (mission.info.from)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MissionFrom}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="미션 To (mission.info.to)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MissionTo}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="최종 목적지 (mission.info.final)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding MissionFinal}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="목표 노드" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding TargetNode}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="미션 차단 여부 (missionblocked)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MissionBlocked}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="적재 상태 (isloaded)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding LoadStatusText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="7" Grid.Column="0" Text="페이로드 (payload)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding Payload}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 배터리 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="배터리 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="배터리 잔량 (battery.info.percentage)" Style="{StaticResource CaptionText}" Margin="0,8"/>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,8">
+                                    <Border Background="{StaticResource SurfaceBackground}"
+                                           CornerRadius="10"
+                                           Width="100" Height="24"
+                                           Margin="0,0,12,0">
+                                        <Border Background="{Binding BatteryLevel, Converter={StaticResource BatteryLevelToColorConverter}}"
+                                               CornerRadius="10"
+                                               HorizontalAlignment="Left"
+                                               Width="{Binding BatteryLevel, Converter={StaticResource BatteryLevelToWidthConverter}}"/>
+                                    </Border>
+                                    <TextBlock Text="{Binding BatteryLevel, StringFormat={}{0}%}"
+                                              Style="{StaticResource BodyText}"
+                                              FontWeight="SemiBold"
+                                              VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="배터리 전압 (battery.info.voltage)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding BatteryVoltage}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="최대 온도 (battery.info.maxtemperature)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BatteryMaxTemp}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Action 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Action 정보 (현재 동작)" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="현재 액션 이름 (action.name)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ActionName}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="소스 타입 (action.sourcetype)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ActionSourceType}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="소스 ID (action.sourceid)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ActionSourceId}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="도착 시간 (action.args.arrivaldate)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ArrivalDate}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="절대 도착 시간 (action.args.absarrivaldate)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding AbsArrivalDate}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="액션 노드 ID (action.args.nodeid)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ActionNodeId}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Lock/연결 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Lock/연결 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Lock UUID (lock.UUID)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LockUuid}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="소유자 앱 (lock.owner.app)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LockOwnerApp}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="소유자 PC (lock.owner.pc)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LockOwnerPc}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="소유자 사용자 (lock.owner.user)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LockOwnerUser}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="연결 상태 (connection.ok)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ConnectionOk}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 에러 및 알람 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="에러 및 알람 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="에러 목록 (state.errors)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ErrorsText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="알람 목록 (alarms)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Alarms.Count}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="에러 비트 (state.error.bits)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ErrorBitsText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="에러 상세 레이블 (state.errorDetailsLabel)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ErrorDetailsLabelText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="에러 상세정보 (state.errorDetails)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ErrorDetailsText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- State - 차량 형상 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="State - 차량 형상 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="차량 실제 외형 (state.body.shape)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding BodyShapeText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="안전영역 포함 폴리곤 (state.vehicle.shape)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleShapeText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- State - 트래픽/미션 진행 정보 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="State - 트래픽/미션 진행 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="트래픽 정보 (state.traffic.info)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TrafficInfoText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="미션 진행률 (state.mission.progress)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MissionProgressText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- State - 공유 메모리 및 메시지 -->
+                    <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="State - 공유 메모리 및 메시지" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="공유 메모리 Out (state.sharedMemory.out)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SharedMemoryOutText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="공유 메모리 In (state.sharedMemory.in)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SharedMemoryInText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="메시지 큐 (state.messages)" Style="{StaticResource CaptionText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MessagesText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 기타 정보 -->
+                    <Border Style="{StaticResource GlassCard}">
+                        <StackPanel>
+                            <TextBlock Text="기타 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,16"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="누적 가동 시간" Style="{StaticResource CaptionText}" Margin="0,8"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding UptimeText}" Style="{StaticResource BodyText}" Margin="0,8"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="마지막 업데이트" Style="{StaticResource CaptionText}" Margin="0,8"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LastUpdate, StringFormat='yyyy-MM-dd HH:mm:ss'}" Style="{StaticResource BodyText}" Margin="0,8"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Bottom Button -->
+            <Border Grid.Row="2" Background="{StaticResource SurfaceBackground}" CornerRadius="0,0,16,16">
+                <Button Content="확인"
+                       Style="{StaticResource ModernPrimaryButton}"
+                       Width="120"
+                       Click="CloseButton_Click"
+                       HorizontalAlignment="Center"/>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

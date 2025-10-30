@@ -41,6 +41,12 @@ public class MainViewModel : ViewModelBase
     private string _selectedInsertNode = string.Empty;
     private ObservableCollection<NodeInfo> _availableNodes = new();
 
+    // Alarm Log Properties
+    private ObservableCollection<AlarmInfo> _alarms = new();
+    private int _alarmLimit = 50;
+    private bool _alarmSortAscending = false;
+    private System.Timers.Timer? _alarmRefreshTimer;
+
     public MainViewModel()
     {
         _antApiService = AntApiService.Instance;
@@ -59,17 +65,23 @@ public class MainViewModel : ViewModelBase
         if (_antApiService.IsConnected)
         {
             IsConnected = true;
-            ConnectionStatus = $"연결 상태: 연결됨 ({ServerUrl})";
+            ConnectionStatus = $"연결 상태: 연결됨 ({_antApiService.CurrentServerUrl})";
             StatusText = "ANT 서버 연결됨";
 
             // 데이터 로드
             _ = LoadInitialServerData();
+
+            // 알람 자동 갱신 타이머 시작
+            StartAlarmRefreshTimer();
         }
         else
         {
             IsConnected = false;
             ConnectionStatus = "연결 상태: 미연결";
             StatusText = "서버에 연결되지 않았습니다";
+
+            // 타이머 중지
+            StopAlarmRefreshTimer();
         }
     }
 
@@ -79,10 +91,41 @@ public class MainViewModel : ViewModelBase
         {
             await ExecuteRefreshNodes();
             await ExecuteRefreshVehicles();
+            await ExecuteRefreshAlarms();
         }
         catch (Exception ex)
         {
             StatusText = $"초기 데이터 로드 실패: {ex.Message}";
+        }
+    }
+
+    private void StartAlarmRefreshTimer()
+    {
+        StopAlarmRefreshTimer();
+
+        _alarmRefreshTimer = new System.Timers.Timer(1000); // 1초
+        _alarmRefreshTimer.Elapsed += async (sender, e) =>
+        {
+            try
+            {
+                await ExecuteRefreshAlarms();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"알람 자동 갱신 오류: {ex.Message}");
+            }
+        };
+        _alarmRefreshTimer.AutoReset = true;
+        _alarmRefreshTimer.Start();
+    }
+
+    private void StopAlarmRefreshTimer()
+    {
+        if (_alarmRefreshTimer != null)
+        {
+            _alarmRefreshTimer.Stop();
+            _alarmRefreshTimer.Dispose();
+            _alarmRefreshTimer = null;
         }
     }
 
@@ -211,6 +254,25 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _password, value);
     }
 
+    // Alarm Log
+    public ObservableCollection<AlarmInfo> Alarms
+    {
+        get => _alarms;
+        set => SetProperty(ref _alarms, value);
+    }
+
+    public int AlarmLimit
+    {
+        get => _alarmLimit;
+        set => SetProperty(ref _alarmLimit, value);
+    }
+
+    public bool AlarmSortAscending
+    {
+        get => _alarmSortAscending;
+        set => SetProperty(ref _alarmSortAscending, value);
+    }
+
     #endregion
 
     #region Commands
@@ -234,6 +296,8 @@ public class MainViewModel : ViewModelBase
     public ICommand RefreshNodesCommand { get; private set; } = null!;
     public ICommand ConnectToServerCommand { get; private set; } = null!;
 
+    public ICommand RefreshAlarmsCommand { get; private set; } = null!;
+
     private void InitializeCommands()
     {
         LogoutCommand = new RelayCommand(ExecuteLogout);
@@ -254,6 +318,8 @@ public class MainViewModel : ViewModelBase
         RefreshVehiclesCommand = new AsyncRelayCommand(ExecuteRefreshVehicles);
         RefreshNodesCommand = new AsyncRelayCommand(ExecuteRefreshNodes);
         ConnectToServerCommand = new AsyncRelayCommand(ExecuteConnectToServer);
+
+        RefreshAlarmsCommand = new AsyncRelayCommand(ExecuteRefreshAlarms);
     }
 
     #endregion
@@ -262,15 +328,27 @@ public class MainViewModel : ViewModelBase
 
     private void ExecuteLogout()
     {
-        var loginWindow = new LoginWindow();
-        loginWindow.Show();
-        
-        foreach (Window window in Application.Current.Windows)
+        // Show confirmation dialog
+        bool result = CommonDialogWindow.ShowDialog(
+            "Are you sure you want to logout?",
+            "Logout Confirmation",
+            CommonDialogWindow.DialogType.Question);
+
+        if (result)
         {
-            if (window is MainWindow)
+            // 타이머 중지
+            StopAlarmRefreshTimer();
+
+            var loginWindow = new LoginWindow();
+            loginWindow.Show();
+
+            foreach (Window window in Application.Current.Windows)
             {
-                window.Close();
-                break;
+                if (window is MainWindow)
+                {
+                    window.Close();
+                    break;
+                }
             }
         }
     }
@@ -577,18 +655,43 @@ public class MainViewModel : ViewModelBase
         if (loginResponse.Success)
         {
             IsConnected = true;
-            ConnectionStatus = $"연결 상태: 연결됨 ({ServerUrl})";
+            ConnectionStatus = $"연결 상태: 연결됨 ({_antApiService.CurrentServerUrl})";
             StatusText = $"ANT 서버 연결 성공 - {loginResponse.DisplayName}";
 
             // 연결 성공 시 기본 데이터 로드
             await ExecuteRefreshNodes();
             await ExecuteRefreshVehicles();
+            await ExecuteRefreshAlarms();
+
+            // 알람 자동 갱신 타이머 시작
+            StartAlarmRefreshTimer();
         }
         else
         {
             IsConnected = false;
             ConnectionStatus = "연결 상태: 연결 실패";
             StatusText = loginResponse.ErrorMessage ?? "ANT 서버 연결 실패";
+        }
+    }
+
+    private async Task ExecuteRefreshAlarms()
+    {
+        try
+        {
+            var alarms = await _antApiService.GetAlarmsAsync(AlarmLimit, AlarmSortAscending);
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Alarms.Clear();
+                foreach (var alarm in alarms)
+                {
+                    Alarms.Add(alarm);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"알람 새로고침 실패: {ex.Message}";
         }
     }
 

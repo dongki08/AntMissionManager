@@ -72,4 +72,35 @@ public partial class MainWindow : Window
             detailWindow.ShowDialog();
         }
     }
+
+    private void AlarmSortOrder_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem item && DataContext is MainViewModel vm)
+        {
+            var tag = item.Tag?.ToString();
+            vm.AlarmSortAscending = tag == "asc";
+
+            if (vm.RefreshAlarmsCommand.CanExecute(null))
+            {
+                vm.RefreshAlarmsCommand.Execute(null);
+            }
+        }
+    }
+
+    private void AlarmLimit_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem item && DataContext is MainViewModel vm)
+        {
+            var tag = item.Tag?.ToString();
+            if (int.TryParse(tag, out int limit))
+            {
+                vm.AlarmLimit = limit;
+
+                if (vm.RefreshAlarmsCommand.CanExecute(null))
+                {
+                    vm.RefreshAlarmsCommand.Execute(null);
+                }
+            }
+        }
+    }
 }

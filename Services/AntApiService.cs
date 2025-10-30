@@ -16,6 +16,7 @@ public class AntApiService
     private string _apiVersion = string.Empty;
 
     public bool IsConnected { get; private set; }
+    public string CurrentServerUrl { get; private set; } = "localhost:8081";
 
     public static AntApiService Instance
     {
@@ -56,6 +57,7 @@ public class AntApiService
         try
         {
             _baseUrl = $"http://{serverUrl}/wms/rest";
+            CurrentServerUrl = serverUrl;
             var loginUrl = $"{_baseUrl}/login";
 
             var loginRequest = new
@@ -174,7 +176,7 @@ public class AntApiService
                             OperatingState = vehicleData.operatingstate ?? 0,
                             Location = GetCurrentLocation(vehicleData.location),
                             MissionId = vehicleData.missionid ?? "",
-                            BatteryLevel = GetBatteryLevel(vehicleData.state?.batteryinfo),
+                            BatteryLevel = GetBatteryLevel(vehicleData.state),
                             Alarms = GetAlarms(vehicleData.alarms),
                             LastUpdate = DateTime.TryParse(vehicleData.timestamp?.ToString(), out DateTime timestamp) ? timestamp : DateTime.Now,
                             IpAddress = vehicleData.ipaddress ?? "",
@@ -446,9 +448,9 @@ public class AntApiService
         }
     }
 
-    private static int GetBatteryLevel(dynamic? batteryInfo)
+    private static int GetBatteryLevel(dynamic? stateData)
     {
-        if (batteryInfo is Newtonsoft.Json.Linq.JArray batteryArray && batteryArray.Count > 0)
+        if (stateData?["battery.info"] is Newtonsoft.Json.Linq.JArray batteryArray && batteryArray.Count > 0)
         {
             if (double.TryParse(batteryArray[0]?.ToString(), out var battery))
             {
@@ -858,6 +860,86 @@ public class AntApiService
         catch (Exception ex)
         {
             throw new Exception($"필터된 미션 정보 조회 오류: {ex.Message}");
+        }
+    }
+
+    public async Task<List<AlarmInfo>> GetAlarmsAsync(int limit = 50, bool ascending = false)
+    {
+        if (!IsConnected)
+            throw new InvalidOperationException("ANT 서버에 연결되지 않았습니다.");
+
+        try
+        {
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var dataRange = $"[0,{limit}]";
+            var sortOrder = ascending ? "asc" : "desc";
+            var dataOrderBy = $"[[\"createdat\",\"{sortOrder}\"]]";
+
+            var url = $"{_baseUrl}{_apiVersion}/alarms?_={timestamp}&datarange={Uri.EscapeDataString(dataRange)}&dataorderby={Uri.EscapeDataString(dataOrderBy)}";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("Authorization", $"Bearer {_token}");
+
+            var response = await _httpClient.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var apiResponse = JsonConvert.DeserializeObject<dynamic>(content);
+
+                var alarms = new List<AlarmInfo>();
+
+                if (apiResponse?.payload?.alarms != null)
+                {
+                    foreach (var alarmData in apiResponse.payload.alarms)
+                    {
+                        DateTime? closedAt = null;
+                        if (alarmData.closedat != null)
+                        {
+                            if (DateTime.TryParse(alarmData.closedat.ToString(), out DateTime parsedClosedAt))
+                            {
+                                closedAt = parsedClosedAt;
+                            }
+                        }
+
+                        DateTime? clearedAt = null;
+                        if (alarmData.clearedat != null)
+                        {
+                            if (DateTime.TryParse(alarmData.clearedat.ToString(), out DateTime parsedClearedAt))
+                            {
+                                clearedAt = parsedClearedAt;
+                            }
+                        }
+
+                        var alarm = new AlarmInfo
+                        {
+                            Uuid = alarmData.uuid?.ToString() ?? "",
+                            SourceId = alarmData.sourceid?.ToString() ?? "",
+                            SourceType = alarmData.sourcetype?.ToString() ?? "",
+                            EventName = alarmData.eventname?.ToString() ?? "",
+                            AlarmMessage = alarmData.alarmmessage?.ToString() ?? "",
+                            EventCount = alarmData.eventcount ?? 0,
+                            FirstEventAt = DateTime.TryParse(alarmData.firsteventat?.ToString(), out DateTime firstEventAt) ? firstEventAt : DateTime.Now,
+                            LastEventAt = DateTime.TryParse(alarmData.lasteventat?.ToString(), out DateTime lastEventAt) ? lastEventAt : DateTime.Now,
+                            Timestamp = DateTime.TryParse(alarmData.timestamp?.ToString(), out DateTime alarmTimestamp) ? alarmTimestamp : DateTime.Now,
+                            State = alarmData.state ?? 0,
+                            ClosedAt = closedAt,
+                            ClearedAt = clearedAt
+                        };
+                        alarms.Add(alarm);
+                    }
+                }
+
+                return alarms;
+            }
+            else
+            {
+                throw new Exception($"알람 정보 조회 실패: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"알람 정보 조회 오류: {ex.Message}");
         }
     }
 

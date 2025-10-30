@@ -67,3 +67,5 @@ C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\AntMiss
 C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\ref\AntMissionManager.dll
 C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\Views\VehicleDetailWindow.baml
 C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\Views\VehicleDetailWindow.g.cs
+C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\Views\CommonDialogWindow.baml
+C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\Views\CommonDialogWindow.g.cs
