@@ -886,10 +886,10 @@ public class AntApiService
                     {
                         MapLogger.LogSection("Processing Map Item");
                         MapLogger.Log($"dataItem type: {dataItem?.GetType().Name}");
-                        MapLogger.Log($"dataItem has 'id': {dataItem["id"] != null}");
-                        MapLogger.Log($"dataItem has 'alias': {dataItem["alias"] != null}");
-                        MapLogger.Log($"dataItem has 'data': {dataItem["data"] != null}");
-                        MapLogger.Log($"dataItem has 'layers': {dataItem["layers"] != null}");
+                        MapLogger.Log($"dataItem has 'id': {dataItem?["id"] != null}");
+                        MapLogger.Log($"dataItem has 'alias': {dataItem?["alias"] != null}");
+                        MapLogger.Log($"dataItem has 'data': {dataItem?["data"] != null}");
+                        MapLogger.Log($"dataItem has 'layers': {dataItem?["layers"] != null}");
 
                         // Get map info from nested data object
                         var dataObject = dataItem["data"];

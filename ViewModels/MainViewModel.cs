@@ -49,6 +49,7 @@ public class MainViewModel : ViewModelBase
 
     // Map View Properties
     private List<MapData> _mapData = new();
+    private bool _mapDataLoaded = false;
 
     private const string TimestampPropertyName = nameof(AlarmInfo.Timestamp);
 
@@ -126,7 +127,13 @@ public class MainViewModel : ViewModelBase
     {
         try
         {
-            await ExecuteRefreshMap();
+            // 맵 데이터는 한 번만 로드 (정적 데이터)
+            if (!_mapDataLoaded)
+            {
+                await ExecuteRefreshMap();
+                _mapDataLoaded = true;
+            }
+            
             await ExecuteRefreshNodes();
             await ExecuteRefreshVehicles();
             await ExecuteRefreshMissions();
@@ -732,11 +739,18 @@ public class MainViewModel : ViewModelBase
 
             Application.Current.Dispatcher.Invoke(() =>
             {
+                Services.MapLogger.Log($"=== MainViewModel: Updating Vehicles collection ===");
+                Services.MapLogger.Log($"Received {vehicles.Count} vehicles from API");
+                
                 Vehicles.Clear();
                 foreach (var vehicle in vehicles)
                 {
+                    Services.MapLogger.Log($"Adding vehicle: {vehicle.Name}, State: {vehicle.VehicleState}, Coords: {vehicle.Coordinates?.Count ?? 0}");
                     Vehicles.Add(vehicle);
                 }
+                
+                Services.MapLogger.Log($"Vehicles collection now has {Vehicles.Count} items");
+                Services.MapLogger.Log($"Vehicles collection type: {Vehicles.GetType().Name}");
             });
 
             if (!isAutoRefresh)
@@ -796,10 +810,7 @@ public class MainViewModel : ViewModelBase
             StatusText = $"ANT 서버 연결 성공 - {loginResponse.DisplayName}";
 
             // 연결 성공 시 기본 데이터 로드
-            await ExecuteRefreshNodes();
-            await ExecuteRefreshVehicles();
-            await ExecuteRefreshMissions();
-            await ExecuteRefreshAlarms();
+            await LoadInitialServerData();
 
             // 실시간 자동 갱신 타이머 시작
             StartRealtimeRefreshTimer();

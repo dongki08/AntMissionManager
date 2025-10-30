@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -8,8 +9,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using AntMissionManager.Models;
 using AntMissionManager.ViewModels;
+using AntMissionManager.Services;
 
 namespace AntMissionManager.Views;
 
@@ -20,6 +23,25 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private double _zoomLevel = 1.0;
     private double _offsetX = 0;
     private double _offsetY = 0;
+    private double _rotationAngle = 0;
+    private bool _isFlippedHorizontally = false;
+
+    // Settings and optimization
+    private readonly MapSettingsService _settingsService = new();
+    private DispatcherTimer? _renderTimer;
+    private bool _needsRender = false;
+    private readonly Dictionary<string, UIElement> _cachedElements = new();
+    private List<MapData>? _cachedMapData;
+    
+    // Settings panel state
+    private bool _isSettingsPanelOpen = false;
+    private double _originalRotationAngle = 0;
+    private bool _originalFlipState = false;
+
+    // Snackbar functionality
+    private Border? _snackbar;
+    private DispatcherTimer? _snackbarTimer;
+    private string? _hoveredNodeName;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -37,7 +59,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     public static readonly DependencyProperty VehiclesProperty =
         DependencyProperty.Register(
             nameof(Vehicles),
-            typeof(List<Vehicle>),
+            typeof(ObservableCollection<Vehicle>),
             typeof(MapView),
             new PropertyMetadata(null, OnVehiclesChanged));
 
@@ -47,9 +69,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         set => SetValue(MapDataProperty, value);
     }
 
-    public List<Vehicle>? Vehicles
+    public ObservableCollection<Vehicle>? Vehicles
     {
-        get => (List<Vehicle>?)GetValue(VehiclesProperty);
+        get => (ObservableCollection<Vehicle>?)GetValue(VehiclesProperty);
         set => SetValue(VehiclesProperty, value);
     }
 
@@ -91,7 +113,36 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 _offsetY = value;
                 OnPropertyChanged();
-                RenderMap();
+                ScheduleRender();
+            }
+        }
+    }
+
+    public double RotationAngle
+    {
+        get => _rotationAngle;
+        set
+        {
+            var newValue = value % 360;
+            if (Math.Abs(_rotationAngle - newValue) > 0.001)
+            {
+                _rotationAngle = newValue;
+                OnPropertyChanged();
+                ScheduleRender();
+            }
+        }
+    }
+
+    public bool IsFlippedHorizontally
+    {
+        get => _isFlippedHorizontally;
+        set
+        {
+            if (_isFlippedHorizontally != value)
+            {
+                _isFlippedHorizontally = value;
+                OnPropertyChanged();
+                ScheduleRender();
             }
         }
     }
@@ -108,9 +159,27 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         InitializeComponent();
         // DataContext는 부모로부터 상속받아야 MapData 바인딩이 작동함
         Loaded += MapView_Loaded;
+        Unloaded += MapView_Unloaded;
         SizeChanged += MapView_SizeChanged;
 
         ResetViewCommand = new RelayCommand(_ => ResetView());
+        
+        // Initialize render timer for optimization
+        _renderTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(16) // ~60 FPS
+        };
+        _renderTimer.Tick += RenderTimer_Tick;
+
+        // Initialize snackbar timer
+        _snackbarTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        _snackbarTimer.Tick += SnackbarTimer_Tick;
+
+        // Load settings
+        _ = LoadSettingsAsync();
     }
 
     private void MapView_Loaded(object sender, RoutedEventArgs e)
@@ -122,7 +191,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private void MapView_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         System.Diagnostics.Debug.WriteLine($"MapView SizeChanged - Canvas Size: {MapCanvas.ActualWidth}x{MapCanvas.ActualHeight}");
-        RenderMap();
+        ScheduleRender();
     }
 
     private static void OnMapDataChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -133,8 +202,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             if (e.NewValue is List<MapData> newData)
             {
                 Services.MapLogger.Log($"  New MapData has {newData.Count} maps");
+                mapView._cachedMapData = newData;
             }
-            mapView.RenderMap();
+            mapView.ScheduleRender();
         }
     }
 
@@ -142,8 +212,16 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     {
         if (d is MapView mapView)
         {
-            Services.MapLogger.Log("OnVehiclesChanged triggered");
-            mapView.RenderMap();
+            Services.MapLogger.Log($"OnVehiclesChanged triggered - Old: {e.OldValue != null}, New: {e.NewValue != null}");
+            if (e.NewValue is ObservableCollection<Vehicle> newVehicles)
+            {
+                Services.MapLogger.Log($"  New Vehicles list has {newVehicles.Count} vehicles");
+                foreach (var vehicle in newVehicles)
+                {
+                    Services.MapLogger.Log($"    Vehicle: {vehicle.Name}, State: {vehicle.VehicleState}, Coords: {vehicle.Coordinates?.Count ?? 0}");
+                }
+            }
+            mapView.ScheduleRender();
         }
     }
 
@@ -159,13 +237,12 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private void RenderMap()
     {
         MapCanvas.Children.Clear();
+        _cachedElements.Clear();
 
-        Services.MapLogger.LogSection("MapView - RenderMap Called");
-        Services.MapLogger.Log($"MapData is null: {MapData == null}");
+        var mapData = _cachedMapData ?? MapData;
 
-        if (MapData == null || !MapData.Any())
+        if (mapData == null || !mapData.Any())
         {
-            Services.MapLogger.Log("MapData is null or empty - showing waiting message");
 
             // Add debug text to canvas
             var debugText = new TextBlock
@@ -182,20 +259,14 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        Services.MapLogger.Log($"MapData count: {MapData.Count}");
-
         var canvasWidth = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
         var canvasHeight = MapCanvas.ActualHeight > 0 ? MapCanvas.ActualHeight : 600;
 
-        Services.MapLogger.Log($"Canvas Size: {canvasWidth}x{canvasHeight}");
-
         // Calculate bounds
-        var allNodes = MapData.SelectMany(m => m.Layers.SelectMany(l => l.Nodes)).ToList();
-        Services.MapLogger.Log($"Total nodes: {allNodes.Count}");
+        var allNodes = mapData.SelectMany(m => m.Layers.SelectMany(l => l.Nodes)).ToList();
 
         if (!allNodes.Any())
         {
-            Services.MapLogger.Log("No nodes found - showing error message");
 
             // Add debug text
             var debugText = new TextBlock
@@ -215,16 +286,11 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         var minY = allNodes.Min(n => n.Y);
         var maxY = allNodes.Max(n => n.Y);
 
-        Services.MapLogger.Log($"Bounds - X: [{minX:F2}, {maxX:F2}], Y: [{minY:F2}, {maxY:F2}]");
-
         var mapWidth = maxX - minX;
         var mapHeight = maxY - minY;
 
-        Services.MapLogger.Log($"Map Size: {mapWidth:F2}x{mapHeight:F2}");
-
         if (mapWidth == 0 || mapHeight == 0)
         {
-            Services.MapLogger.Log("Map width or height is 0 - cannot render!");
             return;
         }
 
@@ -241,25 +307,49 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         var centerOffsetX = canvasWidth / 2 - (minX + mapWidth / 2) * scale;
         var centerOffsetY = canvasHeight / 2 - (minY + mapHeight / 2) * scale;
 
-        // Transform helper
+        // Transform helper with rotation and flip
         Point Transform(double x, double y)
         {
+            // Apply scaling first
+            var scaledX = x * scale;
+            var scaledY = y * scale;
+            
+            // Apply horizontal flip if enabled
+            if (_isFlippedHorizontally)
+            {
+                var mapCenterX = (minX + maxX) / 2 * scale;
+                scaledX = 2 * mapCenterX - scaledX;
+            }
+            
+            // Apply rotation if any
+            if (Math.Abs(_rotationAngle) > 0.001)
+            {
+                var radians = _rotationAngle * Math.PI / 180.0;
+                var cos = Math.Cos(radians);
+                var sin = Math.Sin(radians);
+                
+                // Rotate around the center of the map
+                var mapCenterX = (minX + maxX) / 2 * scale;
+                var mapCenterY = (minY + maxY) / 2 * scale;
+                
+                var relativeX = scaledX - mapCenterX;
+                var relativeY = scaledY - mapCenterY;
+                
+                scaledX = mapCenterX + (relativeX * cos - relativeY * sin);
+                scaledY = mapCenterY + (relativeX * sin + relativeY * cos);
+            }
+            
             return new Point(
-                x * scale + centerOffsetX + _offsetX,
-                y * scale + centerOffsetY + _offsetY
+                scaledX + centerOffsetX + _offsetX,
+                scaledY + centerOffsetY + _offsetY
             );
         }
 
         // Render links (lines) - Draw ALL links from ALL layers
-        int linkCount = 0;
-        foreach (var map in MapData)
+        foreach (var map in mapData)
         {
-            Services.MapLogger.Log($"Rendering Map: {map.Alias}, Layers: {map.Layers.Count}");
-
             foreach (var layer in map.Layers)
             {
-                Services.MapLogger.Log($"  Layer: '{layer.Name}', Nodes: {layer.Nodes.Count}, Links: {layer.Links.Count}");
-
                 // Draw ALL links regardless of layer name
                 foreach (var link in layer.Links)
                 {
@@ -277,11 +367,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                     };
 
                     MapCanvas.Children.Add(line);
-                    linkCount++;
                 }
             }
         }
-        Services.MapLogger.Log($"Rendered {linkCount} links");
 
         // Render mission paths (bright red lines)
         if (Vehicles != null)
@@ -290,6 +378,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 if (vehicle.Path != null && vehicle.Path.Count >= 2)
                 {
+                    // Scale path line thickness based on zoom level
+                    var pathThickness = Math.Max(2, Math.Min(8, 4 * _zoomLevel));
+                    
                     for (int i = 0; i < vehicle.Path.Count - 1; i++)
                     {
                         var fromNodeName = vehicle.Path[i];
@@ -310,7 +401,71 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                                 X2 = p2.X,
                                 Y2 = p2.Y,
                                 Stroke = new SolidColorBrush(Color.FromRgb(255, 50, 50)), // Bright red
-                                StrokeThickness = 4
+                                StrokeThickness = pathThickness
+                            };
+
+                            MapCanvas.Children.Add(pathLine);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Render links (lines) - Draw ALL links from ALL layers
+        foreach (var map in mapData)
+        {
+            foreach (var layer in map.Layers)
+            {
+                foreach (var link in layer.Links)
+                {
+                    var p1 = Transform(link.X1, link.Y1);
+                    var p2 = Transform(link.X2, link.Y2);
+
+                    var line = new Line
+                    {
+                        X1 = p1.X,
+                        Y1 = p1.Y,
+                        X2 = p2.X,
+                        Y2 = p2.Y,
+                        Stroke = new SolidColorBrush(Color.FromRgb(0, 191, 255)),
+                        StrokeThickness = 2.5
+                    };
+
+                    MapCanvas.Children.Add(line);
+                }
+            }
+        }
+
+        // Render mission paths (bright red lines)
+        if (Vehicles != null)
+        {
+            foreach (var vehicle in Vehicles)
+            {
+                if (vehicle.Path != null && vehicle.Path.Count >= 2)
+                {
+                    var pathThickness = Math.Max(2, Math.Min(8, 4 * _zoomLevel));
+                    
+                    for (int i = 0; i < vehicle.Path.Count - 1; i++)
+                    {
+                        var fromNodeName = vehicle.Path[i];
+                        var toNodeName = vehicle.Path[i + 1];
+
+                        var fromNode = allNodes.FirstOrDefault(n => n.Name == fromNodeName);
+                        var toNode = allNodes.FirstOrDefault(n => n.Name == toNodeName);
+
+                        if (fromNode != null && toNode != null)
+                        {
+                            var p1 = Transform(fromNode.X, fromNode.Y);
+                            var p2 = Transform(toNode.X, toNode.Y);
+
+                            var pathLine = new Line
+                            {
+                                X1 = p1.X,
+                                Y1 = p1.Y,
+                                X2 = p2.X,
+                                Y2 = p2.Y,
+                                Stroke = new SolidColorBrush(Color.FromRgb(255, 50, 50)),
+                                StrokeThickness = pathThickness
                             };
 
                             MapCanvas.Children.Add(pathLine);
@@ -321,129 +476,195 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         }
 
         // Render nodes - Draw ALL nodes from ALL layers
-        int nodeCount = 0;
-        foreach (var map in MapData)
+        foreach (var map in mapData)
         {
             foreach (var layer in map.Layers)
             {
-                // Draw ALL nodes regardless of layer name
                 foreach (var node in layer.Nodes)
                 {
                     var pos = Transform(node.X, node.Y);
 
-                    // Outer glow effect
+                    var nodeSize = Math.Max(6, Math.Min(20, 12 * _zoomLevel));
+                    var glowSize = nodeSize + 4;
+                    var strokeWidth = Math.Max(1, 2 * _zoomLevel);
+
                     var outerGlow = new Ellipse
                     {
-                        Width = 18,
-                        Height = 18,
-                        Fill = new SolidColorBrush(Color.FromArgb(80, 255, 215, 0)), // Gold glow
+                        Width = glowSize,
+                        Height = glowSize,
+                        Fill = new SolidColorBrush(Color.FromArgb(80, 255, 215, 0)),
                         StrokeThickness = 0
                     };
 
-                    Canvas.SetLeft(outerGlow, pos.X - 9);
-                    Canvas.SetTop(outerGlow, pos.Y - 9);
+                    Canvas.SetLeft(outerGlow, pos.X - glowSize / 2);
+                    Canvas.SetTop(outerGlow, pos.Y - glowSize / 2);
                     MapCanvas.Children.Add(outerGlow);
 
-                    // Main node circle
                     var nodeEllipse = new Ellipse
                     {
-                        Width = 14,
-                        Height = 14,
-                        Fill = new SolidColorBrush(Color.FromRgb(255, 215, 0)), // Gold
-                        Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255)), // White border
-                        StrokeThickness = 2.5
+                        Width = nodeSize,
+                        Height = nodeSize,
+                        Fill = new SolidColorBrush(Color.FromRgb(255, 215, 0)),
+                        Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                        StrokeThickness = strokeWidth
                     };
 
-                    Canvas.SetLeft(nodeEllipse, pos.X - 7);
-                    Canvas.SetTop(nodeEllipse, pos.Y - 7);
-
+                    Canvas.SetLeft(nodeEllipse, pos.X - nodeSize / 2);
+                    Canvas.SetTop(nodeEllipse, pos.Y - nodeSize / 2);
                     MapCanvas.Children.Add(nodeEllipse);
-
-                    // Node label
-                    if (!string.IsNullOrEmpty(node.Name))
-                    {
-                        var label = new TextBlock
-                        {
-                            Text = node.Name,
-                            Foreground = new SolidColorBrush(Color.FromRgb(255, 255, 0)), // Bright yellow
-                            FontSize = 11,
-                            FontWeight = FontWeights.Bold,
-                            Background = new SolidColorBrush(Color.FromArgb(220, 0, 0, 0)),
-                            Padding = new Thickness(5, 2, 5, 2)
-                        };
-
-                        Canvas.SetLeft(label, pos.X + 10);
-                        Canvas.SetTop(label, pos.Y - 7);
-
-                        MapCanvas.Children.Add(label);
-                    }
-
-                    nodeCount++;
                 }
             }
         }
-        Services.MapLogger.Log($"Rendered {nodeCount} nodes");
-        Services.MapLogger.Log($"Total canvas children: {MapCanvas.Children.Count}");
-        Services.MapLogger.Log("RenderMap completed successfully");
 
-        // Render vehicles (only insert state)
-        if (Vehicles != null)
+        // Render vehicles (improved design but simple structure)
+        if (Vehicles != null && Vehicles.Count > 0)
         {
             foreach (var vehicle in Vehicles)
             {
-                // Only show vehicle if it's in insert state (operatingstate != extract)
-                // Assuming operatingstate: 0=extract, 1=insert, etc.
-                if (vehicle.OperatingState == 0)
-                    continue;
+                if (vehicle.VehicleState == "extracted") continue;
+                if (vehicle.Coordinates == null || vehicle.Coordinates.Count < 2) continue;
 
-                if (vehicle.Coordinates != null && vehicle.Coordinates.Count >= 2)
+                var pos = Transform(vehicle.Coordinates[0], vehicle.Coordinates[1]);
+
+                // Choose color based on vehicle state
+                var (vehicleColor, glowColor, _) = GetVehicleColors(vehicle);
+
+                // Scale vehicle size based on zoom level
+                var vehicleSize = Math.Max(8, Math.Min(24, 16 * _zoomLevel));
+                var strokeWidth = Math.Max(1, 2 * _zoomLevel);
+
+                // Create forklift shape using a group
+                var forkliftGroup = new Canvas();
+                
+                // Main body (larger rectangle)
+                var mainBody = new Rectangle
                 {
-                    var pos = Transform(vehicle.Coordinates[0], vehicle.Coordinates[1]);
+                    Width = vehicleSize * 0.8,
+                    Height = vehicleSize * 0.6,
+                    Fill = new SolidColorBrush(vehicleColor),
+                    Stroke = new SolidColorBrush(Color.FromRgb(40, 40, 40)),
+                    StrokeThickness = strokeWidth * 0.5,
+                    RadiusX = 2,
+                    RadiusY = 2
+                };
+                Canvas.SetLeft(mainBody, vehicleSize * 0.1);
+                Canvas.SetTop(mainBody, vehicleSize * 0.2);
+                forkliftGroup.Children.Add(mainBody);
 
-                    // Outer pulse effect
-                    var outerPulse = new Ellipse
+                // Forks (two small rectangles at front)
+                var fork1 = new Rectangle
+                {
+                    Width = vehicleSize * 0.15,
+                    Height = vehicleSize * 0.35,
+                    Fill = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
+                    RadiusX = 1,
+                    RadiusY = 1
+                };
+                Canvas.SetLeft(fork1, 0);
+                Canvas.SetTop(fork1, vehicleSize * 0.25);
+                forkliftGroup.Children.Add(fork1);
+
+                var fork2 = new Rectangle
+                {
+                    Width = vehicleSize * 0.15,
+                    Height = vehicleSize * 0.35,
+                    Fill = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
+                    RadiusX = 1,
+                    RadiusY = 1
+                };
+                Canvas.SetLeft(fork2, 0);
+                Canvas.SetTop(fork2, vehicleSize * 0.65);
+                forkliftGroup.Children.Add(fork2);
+
+                // Cabin (smaller rectangle at back)
+                var cabin = new Rectangle
+                {
+                    Width = vehicleSize * 0.4,
+                    Height = vehicleSize * 0.4,
+                    Fill = new SolidColorBrush(Color.FromRgb(
+                        (byte)Math.Min(255, vehicleColor.R + 40),
+                        (byte)Math.Min(255, vehicleColor.G + 40),
+                        (byte)Math.Min(255, vehicleColor.B + 40))),
+                    Stroke = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
+                    StrokeThickness = strokeWidth * 0.3,
+                    RadiusX = 2,
+                    RadiusY = 2
+                };
+                Canvas.SetLeft(cabin, vehicleSize * 0.45);
+                Canvas.SetTop(cabin, vehicleSize * 0.3);
+                forkliftGroup.Children.Add(cabin);
+
+                // Direction indicator (small triangle)
+                var directionTriangle = new Polygon
+                {
+                    Points = new PointCollection(new[]
                     {
-                        Width = 26,
-                        Height = 26,
-                        Fill = new SolidColorBrush(Color.FromArgb(100, 0, 255, 0)), // Green glow
-                        StrokeThickness = 0
-                    };
+                        new Point(-2, vehicleSize * 0.15),
+                        new Point(vehicleSize * 0.25, vehicleSize * 0.5),
+                        new Point(-2, vehicleSize * 0.85)
+                    }),
+                    Fill = new SolidColorBrush(Color.FromRgb(255, 215, 0)),
+                    Stroke = new SolidColorBrush(Color.FromRgb(200, 170, 0)),
+                    StrokeThickness = 0.5
+                };
+                forkliftGroup.Children.Add(directionTriangle);
 
-                    Canvas.SetLeft(outerPulse, pos.X - 13);
-                    Canvas.SetTop(outerPulse, pos.Y - 13);
-                    MapCanvas.Children.Add(outerPulse);
+                // Status indicator (small circle)
+                var statusIndicator = new Ellipse
+                {
+                    Width = vehicleSize * 0.25,
+                    Height = vehicleSize * 0.25,
+                    Fill = new SolidColorBrush(vehicleColor),
+                    Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                    StrokeThickness = strokeWidth * 0.6
+                };
+                Canvas.SetLeft(statusIndicator, vehicleSize * 0.55);
+                Canvas.SetTop(statusIndicator, vehicleSize * 0.1);
+                forkliftGroup.Children.Add(statusIndicator);
 
-                    // Vehicle circle
-                    var vehicleEllipse = new Ellipse
-                    {
-                        Width = 18,
-                        Height = 18,
-                        Fill = new SolidColorBrush(Color.FromRgb(0, 255, 0)), // Bright green
-                        Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 0)), // Yellow border
-                        StrokeThickness = 3
-                    };
+                // Position the forklift group
+                Canvas.SetLeft(forkliftGroup, pos.X - vehicleSize / 2);
+                Canvas.SetTop(forkliftGroup, pos.Y - vehicleSize / 2);
+                
+                // Add subtle glow effect
+                forkliftGroup.Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = vehicleColor,
+                    BlurRadius = 6,
+                    ShadowDepth = 0,
+                    Opacity = 0.4
+                };
 
-                    Canvas.SetLeft(vehicleEllipse, pos.X - 9);
-                    Canvas.SetTop(vehicleEllipse, pos.Y - 9);
+                MapCanvas.Children.Add(forkliftGroup);
 
-                    MapCanvas.Children.Add(vehicleEllipse);
+                // Vehicle label with state info
+                var vehicleLabel = new TextBlock
+                {
+                    Text = $"{vehicle.Name}",
+                    Foreground = new SolidColorBrush(vehicleColor),
+                    FontSize = 12,
+                    FontWeight = FontWeights.Bold,
+                    Background = new SolidColorBrush(Color.FromArgb(230, 0, 0, 0)),
+                    Padding = new Thickness(6, 3, 6, 3)
+                };
 
-                    // Vehicle label
-                    var vehicleLabel = new TextBlock
-                    {
-                        Text = vehicle.Name,
-                        Foreground = new SolidColorBrush(Color.FromRgb(0, 255, 0)), // Bright green
-                        FontSize = 12,
-                        FontWeight = FontWeights.Bold,
-                        Background = new SolidColorBrush(Color.FromArgb(230, 0, 0, 0)),
-                        Padding = new Thickness(6, 3, 6, 3)
-                    };
+                Canvas.SetLeft(vehicleLabel, pos.X + 12);
+                Canvas.SetTop(vehicleLabel, pos.Y - 10);
+                MapCanvas.Children.Add(vehicleLabel);
 
-                    Canvas.SetLeft(vehicleLabel, pos.X + 12);
-                    Canvas.SetTop(vehicleLabel, pos.Y - 10);
+                // Add state indicator below name
+                var stateLabel = new TextBlock
+                {
+                    Text = vehicle.VehicleStateText,
+                    Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
+                    FontSize = 9,
+                    Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
+                    Padding = new Thickness(4, 1, 4, 1)
+                };
 
-                    MapCanvas.Children.Add(vehicleLabel);
-                }
+                Canvas.SetLeft(stateLabel, pos.X + 12);
+                Canvas.SetTop(stateLabel, pos.Y + 5);
+                MapCanvas.Children.Add(stateLabel);
             }
         }
     }
@@ -472,19 +693,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         var currentPosition = e.GetPosition(MapCanvas);
         var delta = currentPosition - _lastMousePosition;
 
-        // Vertical drag for zoom
-        if (Math.Abs(delta.Y) > Math.Abs(delta.X))
-        {
-            // Drag up = zoom out, drag down = zoom in
-            var zoomDelta = -delta.Y * 0.01;
-            ZoomLevel += zoomDelta;
-        }
-        else
-        {
-            // Horizontal drag for pan
-            OffsetX += delta.X;
-            OffsetY += delta.Y;
-        }
+        // Pan in all directions (both X and Y)
+        OffsetX += delta.X;
+        OffsetY += delta.Y;
 
         _lastMousePosition = currentPosition;
         e.Handled = true;
@@ -497,22 +708,350 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         e.Handled = true;
     }
 
-    private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
+    #region UI Event Handlers
+
+    private void SettingsToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _isSettingsPanelOpen = !_isSettingsPanelOpen;
+        
+        if (_isSettingsPanelOpen)
+        {
+            _originalRotationAngle = _rotationAngle;
+            _originalFlipState = _isFlippedHorizontally;
+            SettingsPanel.Visibility = Visibility.Visible;
+            SettingsToggleButton.Content = "✕";
+            SettingsToggleButton.ToolTip = "Close Settings";
+        }
+        else
+        {
+            SettingsPanel.Visibility = Visibility.Collapsed;
+            SettingsToggleButton.Content = "⚙️";
+            SettingsToggleButton.ToolTip = "Map Settings";
+        }
+    }
+
+    private void RotationSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (sender is Slider slider)
+        {
+            // Apply rotation immediately for preview
+            RotationAngle = slider.Value;
+        }
+    }
+
+    private void ResetRotation_Click(object sender, RoutedEventArgs e)
+    {
+        RotationSlider.Value = 0;
+    }
+
+    private async void CompleteSettings_Click(object sender, RoutedEventArgs e)
+    {
+        // Save the current settings
+        await SaveSettingsAsync();
+        
+        // Close the settings panel
+        _isSettingsPanelOpen = false;
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        SettingsToggleButton.Content = "⚙️";
+        SettingsToggleButton.ToolTip = "Map Settings";
+        
+        // Brief feedback
+        var button = sender as Button;
+        if (button != null)
+        {
+            var originalContent = button.Content;
+            button.Content = "Saved!";
+            button.IsEnabled = false;
+            
+            await Task.Delay(1000);
+            
+            button.Content = originalContent;
+            button.IsEnabled = true;
+        }
+    }
+
+    private void CancelSettings_Click(object sender, RoutedEventArgs e)
+    {
+        // Restore original rotation angle and flip state
+        RotationAngle = _originalRotationAngle;
+        RotationSlider.Value = _originalRotationAngle;
+        IsFlippedHorizontally = _originalFlipState;
+        FlipCheckBox.IsChecked = _originalFlipState;
+        
+        // Close the settings panel
+        _isSettingsPanelOpen = false;
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        SettingsToggleButton.Content = "⚙️";
+        SettingsToggleButton.ToolTip = "Map Settings";
+    }
+
+    private void Rotate90_Click(object sender, RoutedEventArgs e)
+    {
+        RotationSlider.Value = (_rotationAngle + 90) % 360;
+    }
+
+    private void Rotate180_Click(object sender, RoutedEventArgs e)
+    {
+        RotationSlider.Value = (_rotationAngle + 180) % 360;
+    }
+
+    private void Rotate270_Click(object sender, RoutedEventArgs e)
+    {
+        RotationSlider.Value = (_rotationAngle + 270) % 360;
+    }
+
+    private void FlipHorizontal_Changed(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox)
+        {
+            IsFlippedHorizontally = checkBox.IsChecked == true;
+        }
+    }
+
+    private void ToggleFlip_Click(object sender, RoutedEventArgs e)
+    {
+        FlipCheckBox.IsChecked = !FlipCheckBox.IsChecked;
+        IsFlippedHorizontally = FlipCheckBox.IsChecked == true;
+    }
+
+    #endregion
+
+    #region Optimization and Settings Methods
+
+    private void ScheduleRender()
+    {
+        if (!_needsRender)
+        {
+            _needsRender = true;
+            _renderTimer?.Start();
+        }
+    }
+
+    private void RenderTimer_Tick(object? sender, EventArgs e)
+    {
+        _renderTimer?.Stop();
+        if (_needsRender)
+        {
+            _needsRender = false;
+            RenderMap();
+        }
+    }
+
+    private async Task LoadSettingsAsync()
     {
         try
         {
-            var logPath = Services.MapLogger.GetLogFilePath();
-            var logDir = System.IO.Path.GetDirectoryName(logPath);
-
-            if (!string.IsNullOrEmpty(logDir))
-            {
-                // Open folder and select the log file
-                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{logPath}\"");
-            }
+            var settings = await _settingsService.LoadSettingsAsync();
+            _offsetX = settings.OffsetX;
+            _offsetY = settings.OffsetY;
+            _rotationAngle = settings.RotationAngle;
+            _zoomLevel = settings.ZoomLevel;
+            _isFlippedHorizontally = settings.IsFlippedHorizontally;
+            
+            OnPropertyChanged(nameof(OffsetX));
+            OnPropertyChanged(nameof(OffsetY));
+            OnPropertyChanged(nameof(RotationAngle));
+            OnPropertyChanged(nameof(ZoomLevel));
+            OnPropertyChanged(nameof(IsFlippedHorizontally));
+            
+            ScheduleRender();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error opening log folder: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Failed to load map settings: {ex.Message}");
         }
+    }
+
+    private async Task SaveSettingsAsync()
+    {
+        try
+        {
+            var settings = new MapSettingsService.MapSettings
+            {
+                OffsetX = _offsetX,
+                OffsetY = _offsetY,
+                RotationAngle = _rotationAngle,
+                ZoomLevel = _zoomLevel,
+                IsFlippedHorizontally = _isFlippedHorizontally
+            };
+            
+            await _settingsService.SaveSettingsAsync(settings);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to save map settings: {ex.Message}");
+        }
+    }
+
+    #endregion
+
+    #region Snackbar Methods
+
+    private void ShowNodeSnackbar(string nodeName, Point position)
+    {
+        HideSnackbar();
+
+        _snackbar = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(230, 0, 0, 0)),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12, 6, 12, 6),
+            Child = new TextBlock
+            {
+                Text = $"Node: {nodeName}",
+                Foreground = Brushes.White,
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold
+            }
+        };
+
+        Canvas.SetLeft(_snackbar, Math.Max(0, Math.Min(position.X + 15, MapCanvas.ActualWidth - 150)));
+        Canvas.SetTop(_snackbar, Math.Max(0, position.Y - 30));
+        Canvas.SetZIndex(_snackbar, 1000);
+
+        MapCanvas.Children.Add(_snackbar);
+        
+        _snackbarTimer?.Stop();
+        _snackbarTimer?.Start();
+    }
+
+    private void HideSnackbar()
+    {
+        if (_snackbar != null)
+        {
+            MapCanvas.Children.Remove(_snackbar);
+            _snackbar = null;
+        }
+        _snackbarTimer?.Stop();
+    }
+
+    private void SnackbarTimer_Tick(object? sender, EventArgs e)
+    {
+        HideSnackbar();
+    }
+
+    private MapNode? GetNodeAtPosition(Point position)
+    {
+        if (_cachedMapData == null) return null;
+
+        var canvasWidth = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
+        var canvasHeight = MapCanvas.ActualHeight > 0 ? MapCanvas.ActualHeight : 600;
+
+        var allNodes = _cachedMapData.SelectMany(m => m.Layers.SelectMany(l => l.Nodes)).ToList();
+        if (!allNodes.Any()) return null;
+
+        var minX = allNodes.Min(n => n.X);
+        var maxX = allNodes.Max(n => n.X);
+        var minY = allNodes.Min(n => n.Y);
+        var maxY = allNodes.Max(n => n.Y);
+        var mapWidth = maxX - minX;
+        var mapHeight = maxY - minY;
+
+        if (mapWidth == 0 || mapHeight == 0) return null;
+
+        var padding = 50;
+        var scaleX = (canvasWidth - padding * 2) / mapWidth;
+        var scaleY = (canvasHeight - padding * 2) / mapHeight;
+        var baseScale = Math.Min(scaleX, scaleY);
+        var scale = baseScale * _zoomLevel;
+
+        var centerOffsetX = canvasWidth / 2 - (minX + mapWidth / 2) * scale;
+        var centerOffsetY = canvasHeight / 2 - (minY + mapHeight / 2) * scale;
+
+        foreach (var node in allNodes)
+        {
+            // Apply same transform as in rendering
+            var scaledX = node.X * scale;
+            var scaledY = node.Y * scale;
+            
+            // Apply horizontal flip if enabled
+            if (_isFlippedHorizontally)
+            {
+                var mapCenterX = (minX + maxX) / 2 * scale;
+                scaledX = 2 * mapCenterX - scaledX;
+            }
+            
+            // Apply rotation if any
+            if (Math.Abs(_rotationAngle) > 0.001)
+            {
+                var radians = _rotationAngle * Math.PI / 180.0;
+                var cos = Math.Cos(radians);
+                var sin = Math.Sin(radians);
+                
+                var mapCenterX = (minX + maxX) / 2 * scale;
+                var mapCenterY = (minY + maxY) / 2 * scale;
+                
+                var relativeX = scaledX - mapCenterX;
+                var relativeY = scaledY - mapCenterY;
+                
+                scaledX = mapCenterX + (relativeX * cos - relativeY * sin);
+                scaledY = mapCenterY + (relativeX * sin + relativeY * cos);
+            }
+            
+            var nodeX = scaledX + centerOffsetX + _offsetX;
+            var nodeY = scaledY + centerOffsetY + _offsetY;
+
+            var distance = Math.Sqrt(Math.Pow(position.X - nodeX, 2) + Math.Pow(position.Y - nodeY, 2));
+            if (distance <= 15) // Node hit radius
+            {
+                return node;
+            }
+        }
+
+        return null;
+    }
+
+    #endregion
+
+    #region Mouse Event Overrides
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        
+        if (!_isDragging)
+        {
+            var position = e.GetPosition(MapCanvas);
+            var hitNode = GetNodeAtPosition(position);
+            
+            if (hitNode != null && !string.IsNullOrEmpty(hitNode.Name) && hitNode.Name != _hoveredNodeName)
+            {
+                _hoveredNodeName = hitNode.Name;
+                ShowNodeSnackbar(hitNode.Name, position);
+            }
+            else if (hitNode == null && _hoveredNodeName != null)
+            {
+                _hoveredNodeName = null;
+                HideSnackbar();
+            }
+        }
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _hoveredNodeName = null;
+        HideSnackbar();
+    }
+
+    #endregion
+
+    private void MapView_Unloaded(object sender, RoutedEventArgs e)
+    {
+        _ = SaveSettingsAsync();
+        _renderTimer?.Stop();
+        _snackbarTimer?.Stop();
+    }
+
+    private (Color vehicleColor, Color glowColor, string colorName) GetVehicleColors(Vehicle vehicle)
+    {
+        return vehicle.VehicleState.ToLower() switch
+        {
+            "runningamission" => (Color.FromRgb(255, 165, 0), Color.FromArgb(100, 255, 165, 0), "orange (mission)"),
+            "charging" => (Color.FromRgb(0, 191, 255), Color.FromArgb(100, 0, 191, 255), "cyan (charging)"),
+            "parking" => (Color.FromRgb(128, 128, 128), Color.FromArgb(100, 128, 128, 128), "gray (parking)"),
+            "movingtonode" => (Color.FromRgb(255, 255, 0), Color.FromArgb(100, 255, 255, 0), "yellow (moving)"),
+            _ => (Color.FromRgb(0, 255, 0), Color.FromArgb(100, 0, 255, 0), "default green")
+        };
     }
 }

@@ -49,14 +49,14 @@ public static class MapLogger
         Log($"========== {sectionName} ==========");
     }
 
-    public static void LogError(string message, Exception ex = null)
+    public static void LogError(string message, Exception? ex = null)
     {
         Log($"ERROR: {message}");
         if (ex != null)
         {
             Log($"Exception: {ex.GetType().Name}");
             Log($"Message: {ex.Message}");
-            Log($"StackTrace: {ex.StackTrace}");
+            Log($"StackTrace: {ex.StackTrace ?? "No stack trace available"}");
         }
     }
 

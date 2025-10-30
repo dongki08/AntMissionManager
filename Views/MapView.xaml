@@ -12,76 +12,11 @@
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="1"
                 Margin="8">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <!-- Info Panel -->
-                <Border Grid.Row="0"
-                        Background="{StaticResource SurfaceBackground}"
-                        Padding="16,12"
-                        CornerRadius="12,12,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <TextBlock Text="Zoom: "
-                                      Foreground="{StaticResource SecondaryText}"
-                                      FontSize="12"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding ZoomLevel, StringFormat={}{0:F2}x, ElementName=mapViewControl}"
-                                      Foreground="{StaticResource PrimaryText}"
-                                      FontSize="12"
-                                      FontWeight="SemiBold"
-                                      VerticalAlignment="Center"
-                                      Margin="4,0,16,0"/>
-
-                            <TextBlock Text="Offset: "
-                                      Foreground="{StaticResource SecondaryText}"
-                                      FontSize="12"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Foreground="{StaticResource PrimaryText}"
-                                      FontSize="12"
-                                      FontWeight="SemiBold"
-                                      VerticalAlignment="Center"
-                                      Margin="4,0,0,0">
-                                <TextBlock.Text>
-                                    <MultiBinding StringFormat="{}{0:F0}, {1:F0}">
-                                        <Binding Path="OffsetX" ElementName="mapViewControl"/>
-                                        <Binding Path="OffsetY" ElementName="mapViewControl"/>
-                                    </MultiBinding>
-                                </TextBlock.Text>
-                            </TextBlock>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button Content="Open Log Folder"
-                                   Click="OpenLogFolder_Click"
-                                   Style="{StaticResource ModernSecondaryButton}"
-                                   Height="28"
-                                   Padding="12,4"
-                                   FontSize="11"
-                                   Margin="0,0,8,0"/>
-                            <Button Content="Reset View"
-                                   Command="{Binding ResetViewCommand, ElementName=mapViewControl}"
-                                   Style="{StaticResource ModernSecondaryButton}"
-                                   Height="28"
-                                   Padding="12,4"
-                                   FontSize="11"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- Map Canvas -->
-                <Border Grid.Row="1"
-                        Background="#0a0a0a"
-                        CornerRadius="0,0,12,12"
-                        ClipToBounds="True">
+            <!-- Map Canvas -->
+            <Border Background="#0a0a0a"
+                    CornerRadius="12"
+                    ClipToBounds="True">
+                <Grid>
                     <Canvas x:Name="MapCanvas"
                             MouseWheel="MapCanvas_MouseWheel"
                             MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown"
@@ -89,8 +24,194 @@
                             MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp"
                             Background="#0a0a0a"
                             ClipToBounds="True"/>
-                </Border>
-            </Grid>
+                    
+                    <!-- Map Info Overlay (Top Left) -->
+                    <Border x:Name="InfoOverlay"
+                            Background="{StaticResource SurfaceBackground}"
+                            CornerRadius="8"
+                            Padding="12,8"
+                            Margin="16,16,0,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Opacity="0.9">
+                        <StackPanel Orientation="Vertical">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Text="Zoom: "
+                                          Foreground="{StaticResource SecondaryText}"
+                                          FontSize="11"
+                                          VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ZoomLevel, StringFormat={}{0:F2}x, ElementName=mapViewControl}"
+                                          Foreground="{StaticResource PrimaryText}"
+                                          FontSize="11"
+                                          FontWeight="SemiBold"
+                                          VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Offset: "
+                                          Foreground="{StaticResource SecondaryText}"
+                                          FontSize="11"
+                                          VerticalAlignment="Center"/>
+                                <TextBlock Foreground="{StaticResource PrimaryText}"
+                                          FontSize="11"
+                                          FontWeight="SemiBold"
+                                          VerticalAlignment="Center">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0:F0}, {1:F0}">
+                                            <Binding Path="OffsetX" ElementName="mapViewControl"/>
+                                            <Binding Path="OffsetY" ElementName="mapViewControl"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Settings Button (Top Right) -->
+                    <Button x:Name="SettingsToggleButton"
+                            Content="⚙️"
+                            Click="SettingsToggle_Click"
+                            Style="{StaticResource ModernSecondaryButton}"
+                            Width="40"
+                            Height="40"
+                            FontSize="16"
+                            Margin="0,16,16,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            ToolTip="Map Settings"/>
+                    
+                    <!-- Settings Panel (Hidden by default) -->
+                    <Border x:Name="SettingsPanel"
+                            Background="{StaticResource SurfaceBackground}"
+                            CornerRadius="8"
+                            Padding="16,12"
+                            Margin="0,70,16,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Opacity="0.95"
+                            Visibility="Collapsed">
+                        <StackPanel Orientation="Vertical" Width="200">
+                            <TextBlock Text="Map Settings"
+                                      Foreground="{StaticResource PrimaryText}"
+                                      FontSize="14"
+                                      FontWeight="Bold"
+                                      Margin="0,0,0,12"/>
+                            
+                            <!-- Rotation Control -->
+                            <StackPanel Orientation="Vertical" Margin="0,0,0,12">
+                                <TextBlock Text="Rotation Angle"
+                                          Foreground="{StaticResource SecondaryText}"
+                                          FontSize="11"
+                                          Margin="0,0,0,6"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <Slider x:Name="RotationSlider"
+                                            Grid.Column="0"
+                                            Minimum="0"
+                                            Maximum="360"
+                                            Value="{Binding RotationAngle, ElementName=mapViewControl}"
+                                            ValueChanged="RotationSlider_ValueChanged"
+                                            TickFrequency="15"
+                                            IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center"/>
+                                    
+                                    <TextBlock x:Name="RotationValueText"
+                                              Grid.Column="1"
+                                              Text="{Binding Value, ElementName=RotationSlider, StringFormat={}{0:F0}°}"
+                                              Foreground="{StaticResource PrimaryText}"
+                                              FontSize="11"
+                                              VerticalAlignment="Center"
+                                              Margin="8,0,8,0"
+                                              MinWidth="35"
+                                              TextAlignment="Center"/>
+                                    
+                                    <Button Grid.Column="2"
+                                           Content="↻"
+                                           Click="ResetRotation_Click"
+                                           Style="{StaticResource ModernSecondaryButton}"
+                                           Width="24"
+                                           Height="24"
+                                           FontSize="12"
+                                           ToolTip="Reset Rotation"/>
+                                </Grid>
+                                
+                                <!-- Quick Rotation Buttons -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                                    <Button Content="↻ 90°"
+                                           Click="Rotate90_Click"
+                                           Style="{StaticResource ModernSecondaryButton}"
+                                           Width="50"
+                                           Height="28"
+                                           FontSize="10"
+                                           Margin="0,0,4,0"
+                                           ToolTip="Rotate 90 degrees"/>
+                                    <Button Content="↻ 180°"
+                                           Click="Rotate180_Click"
+                                           Style="{StaticResource ModernSecondaryButton}"
+                                           Width="50"
+                                           Height="28"
+                                           FontSize="10"
+                                           Margin="0,0,4,0"
+                                           ToolTip="Rotate 180 degrees"/>
+                                    <Button Content="↻ 270°"
+                                           Click="Rotate270_Click"
+                                           Style="{StaticResource ModernSecondaryButton}"
+                                           Width="50"
+                                           Height="28"
+                                           FontSize="10"
+                                           ToolTip="Rotate 270 degrees"/>
+                                </StackPanel>
+                            </StackPanel>
+                            
+                            <!-- Flip Control -->
+                            <StackPanel Orientation="Vertical" Margin="0,0,0,12">
+                                <TextBlock Text="Flip Horizontal"
+                                          Foreground="{StaticResource SecondaryText}"
+                                          FontSize="11"
+                                          Margin="0,0,0,6"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <CheckBox x:Name="FlipCheckBox"
+                                             IsChecked="{Binding IsFlippedHorizontally, ElementName=mapViewControl}"
+                                             Checked="FlipHorizontal_Changed"
+                                             Unchecked="FlipHorizontal_Changed"
+                                             Content="Mirror Map"
+                                             Foreground="{StaticResource PrimaryText}"
+                                             FontSize="11"
+                                             Margin="0,0,8,0"/>
+                                    <Button Content="⟷"
+                                           Click="ToggleFlip_Click"
+                                           Style="{StaticResource ModernSecondaryButton}"
+                                           Width="32"
+                                           Height="24"
+                                           FontSize="14"
+                                           ToolTip="Toggle Horizontal Flip"/>
+                                </StackPanel>
+                            </StackPanel>
+                            
+                            <!-- Action Buttons -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="Complete"
+                                       Click="CompleteSettings_Click"
+                                       Style="{StaticResource ModernPrimaryButton}"
+                                       Height="32"
+                                       Padding="16,4"
+                                       FontSize="11"
+                                       Margin="0,0,8,0"/>
+                                <Button Content="Cancel"
+                                       Click="CancelSettings_Click"
+                                       Style="{StaticResource ModernSecondaryButton}"
+                                       Height="32"
+                                       Padding="12,4"
+                                       FontSize="11"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
         </Border>
     </Grid>
 </UserControl>

@@ -71,3 +71,10 @@ C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\Views\C
 C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\Views\CommonDialogWindow.g.cs
 C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\Views\MapView.baml
 C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\Views\MapView.g.cs
+C:\Users\hi\RiderProjects\AntTool\AntMissionManager\obj\Debug\net8.0-windows\Views\CommonDialogWindow.baml
+C:\Users\hi\RiderProjects\AntTool\AntMissionManager\obj\Debug\net8.0-windows\Views\MapView.baml
+C:\Users\hi\RiderProjects\AntTool\AntMissionManager\obj\Debug\net8.0-windows\Views\VehicleDetailWindow.baml
+C:\Users\hi\RiderProjects\AntTool\AntMissionManager\obj\Debug\net8.0-windows\Views\CommonDialogWindow.g.cs
+C:\Users\hi\RiderProjects\AntTool\AntMissionManager\obj\Debug\net8.0-windows\Views\MapView.g.cs
+C:\Users\hi\RiderProjects\AntTool\AntMissionManager\obj\Debug\net8.0-windows\Views\VehicleDetailWindow.g.cs
+C:\Users\hi\RiderProjects\AntTool\AntMissionManager\obj\Debug\net8.0-windows\AntMissionManager.sourcelink.json
