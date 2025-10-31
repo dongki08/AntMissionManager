@@ -1048,7 +1048,7 @@
                                          Sorting="AlarmDataGrid_Sorting"
                                          Loaded="AlarmDataGrid_Loaded">
                                     <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="상태" Width="100" SortMemberPath="State">
+                                        <DataGridTemplateColumn Header="상태" Width="80" SortMemberPath="State">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border Background="{Binding StateColor}"
@@ -1066,13 +1066,12 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="소스 타입" Binding="{Binding SourceTypeText}" Width="100" ElementStyle="{StaticResource CenteredDataGridTextStyle}" SortMemberPath="SourceTypeText"/>
+                                        <DataGridTextColumn Header="타입" Binding="{Binding SourceTypeText}" Width="100" ElementStyle="{StaticResource CenteredDataGridTextStyle}" SortMemberPath="SourceTypeText"/>
                                         <DataGridTextColumn Header="소스 ID" Binding="{Binding SourceId}" Width="120" ElementStyle="{StaticResource CenteredDataGridTextStyle}" SortMemberPath="SourceId"/>
-                                        <DataGridTextColumn Header="이벤트 이름" Binding="{Binding EventDisplayName}" Width="1.5*" SortMemberPath="EventDisplayName" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="이벤트 이름" Binding="{Binding EventDisplayName}" Width="2*" SortMemberPath="EventDisplayName" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                         <DataGridTextColumn Header="횟수" Binding="{Binding EventCount}" Width="70" ElementStyle="{StaticResource CenteredDataGridTextStyle}" HeaderStyle="{StaticResource CenteredDataGridHeaderStyle}" SortMemberPath="EventCount"/>
-                                        <DataGridTextColumn Header="발생 시간" Binding="{Binding TimestampText}" Width="1.3*" SortMemberPath="Timestamp" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="첫 발생 시간" Binding="{Binding FirstEventAtText}" Width="1.3*" SortMemberPath="FirstEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="마지막 발생" Binding="{Binding LastEventAtText}" Width="1.3*" SortMemberPath="LastEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="첫 발생 시간" Binding="{Binding FirstEventAtText}" Width="0.8*" SortMemberPath="FirstEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="마지막 발생" Binding="{Binding LastEventAtText}" Width="0.8*" SortMemberPath="LastEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Border>

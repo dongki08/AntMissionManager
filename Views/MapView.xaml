@@ -22,7 +22,7 @@
                             MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown"
                             MouseMove="MapCanvas_MouseMove"
                             MouseLeftButtonUp="MapCanvas_MouseLeftButtonUp"
-                            Background="#0a0a0a"
+                            Background="#212121"
                             ClipToBounds="True"/>
                     
                     <!-- Map Info Overlay (Top Left) -->
@@ -191,7 +191,71 @@
                                            ToolTip="Toggle Horizontal Flip"/>
                                 </StackPanel>
                             </StackPanel>
-                            
+
+                            <!-- Node Size Control -->
+                            <StackPanel Orientation="Vertical" Margin="0,0,0,12">
+                                <TextBlock Text="Node Size"
+                                          Foreground="{StaticResource SecondaryText}"
+                                          FontSize="11"
+                                          Margin="0,0,0,6"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Slider x:Name="NodeSizeSlider"
+                                            Grid.Column="0"
+                                            Minimum="1"
+                                            Maximum="10"
+                                            Value="{Binding NodeSize, ElementName=mapViewControl}"
+                                            TickFrequency="1"
+                                            IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center"/>
+
+                                    <TextBlock Grid.Column="1"
+                                              Text="{Binding Value, ElementName=NodeSizeSlider, StringFormat={}{0:F0}}"
+                                              Foreground="{StaticResource PrimaryText}"
+                                              FontSize="11"
+                                              VerticalAlignment="Center"
+                                              Margin="8,0,0,0"
+                                              MinWidth="25"
+                                              TextAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Vehicle Size Control -->
+                            <StackPanel Orientation="Vertical" Margin="0,0,0,12">
+                                <TextBlock Text="Vehicle Size"
+                                          Foreground="{StaticResource SecondaryText}"
+                                          FontSize="11"
+                                          Margin="0,0,0,6"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Slider x:Name="VehicleSizeSlider"
+                                            Grid.Column="0"
+                                            Minimum="8"
+                                            Maximum="40"
+                                            Value="{Binding VehicleSize, ElementName=mapViewControl}"
+                                            TickFrequency="2"
+                                            IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center"/>
+
+                                    <TextBlock Grid.Column="1"
+                                              Text="{Binding Value, ElementName=VehicleSizeSlider, StringFormat={}{0:F0}}"
+                                              Foreground="{StaticResource PrimaryText}"
+                                              FontSize="11"
+                                              VerticalAlignment="Center"
+                                              Margin="8,0,0,0"
+                                              MinWidth="25"
+                                              TextAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+
                             <!-- Action Buttons -->
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Content="Complete"

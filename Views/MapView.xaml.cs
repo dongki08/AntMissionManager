@@ -25,6 +25,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private double _offsetY = 0;
     private double _rotationAngle = 0;
     private bool _isFlippedHorizontally = false;
+    private double _nodeSize = 5;
+    private double _vehicleSize = 16;
 
     // Settings and optimization
     private readonly MapSettingsService _settingsService = new();
@@ -32,6 +34,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private bool _needsRender = false;
     private readonly Dictionary<string, UIElement> _cachedElements = new();
     private List<MapData>? _cachedMapData;
+    private DateTime _lastRenderTime = DateTime.MinValue;
     
     // Settings panel state
     private bool _isSettingsPanelOpen = false;
@@ -85,7 +88,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 _zoomLevel = newValue;
                 OnPropertyChanged();
-                RenderMap();
+                ScheduleRender();
             }
         }
     }
@@ -99,7 +102,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 _offsetX = value;
                 OnPropertyChanged();
-                RenderMap();
+                ScheduleRender();
             }
         }
     }
@@ -147,6 +150,36 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         }
     }
 
+    public double NodeSize
+    {
+        get => _nodeSize;
+        set
+        {
+            var newValue = Math.Clamp(value, 1, 10);
+            if (Math.Abs(_nodeSize - newValue) > 0.001)
+            {
+                _nodeSize = newValue;
+                OnPropertyChanged();
+                ScheduleRender();
+            }
+        }
+    }
+
+    public double VehicleSize
+    {
+        get => _vehicleSize;
+        set
+        {
+            var newValue = Math.Clamp(value, 8, 40);
+            if (Math.Abs(_vehicleSize - newValue) > 0.001)
+            {
+                _vehicleSize = newValue;
+                OnPropertyChanged();
+                ScheduleRender();
+            }
+        }
+    }
+
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -167,7 +200,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         // Initialize render timer for optimization
         _renderTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(16) // ~60 FPS
+            Interval = TimeSpan.FromMilliseconds(8) // ~120 FPS for smoother dragging
         };
         _renderTimer.Tick += RenderTimer_Tick;
 
@@ -313,102 +346,36 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             // Apply scaling first
             var scaledX = x * scale;
             var scaledY = y * scale;
-            
+
             // Apply horizontal flip if enabled
             if (_isFlippedHorizontally)
             {
                 var mapCenterX = (minX + maxX) / 2 * scale;
                 scaledX = 2 * mapCenterX - scaledX;
             }
-            
+
             // Apply rotation if any
             if (Math.Abs(_rotationAngle) > 0.001)
             {
                 var radians = _rotationAngle * Math.PI / 180.0;
                 var cos = Math.Cos(radians);
                 var sin = Math.Sin(radians);
-                
+
                 // Rotate around the center of the map
                 var mapCenterX = (minX + maxX) / 2 * scale;
                 var mapCenterY = (minY + maxY) / 2 * scale;
-                
+
                 var relativeX = scaledX - mapCenterX;
                 var relativeY = scaledY - mapCenterY;
-                
+
                 scaledX = mapCenterX + (relativeX * cos - relativeY * sin);
                 scaledY = mapCenterY + (relativeX * sin + relativeY * cos);
             }
-            
+
             return new Point(
                 scaledX + centerOffsetX + _offsetX,
                 scaledY + centerOffsetY + _offsetY
             );
-        }
-
-        // Render links (lines) - Draw ALL links from ALL layers
-        foreach (var map in mapData)
-        {
-            foreach (var layer in map.Layers)
-            {
-                // Draw ALL links regardless of layer name
-                foreach (var link in layer.Links)
-                {
-                    var p1 = Transform(link.X1, link.Y1);
-                    var p2 = Transform(link.X2, link.Y2);
-
-                    var line = new Line
-                    {
-                        X1 = p1.X,
-                        Y1 = p1.Y,
-                        X2 = p2.X,
-                        Y2 = p2.Y,
-                        Stroke = new SolidColorBrush(Color.FromRgb(0, 191, 255)), // Bright cyan
-                        StrokeThickness = 2.5
-                    };
-
-                    MapCanvas.Children.Add(line);
-                }
-            }
-        }
-
-        // Render mission paths (bright red lines)
-        if (Vehicles != null)
-        {
-            foreach (var vehicle in Vehicles)
-            {
-                if (vehicle.Path != null && vehicle.Path.Count >= 2)
-                {
-                    // Scale path line thickness based on zoom level
-                    var pathThickness = Math.Max(2, Math.Min(8, 4 * _zoomLevel));
-                    
-                    for (int i = 0; i < vehicle.Path.Count - 1; i++)
-                    {
-                        var fromNodeName = vehicle.Path[i];
-                        var toNodeName = vehicle.Path[i + 1];
-
-                        var fromNode = allNodes.FirstOrDefault(n => n.Name == fromNodeName);
-                        var toNode = allNodes.FirstOrDefault(n => n.Name == toNodeName);
-
-                        if (fromNode != null && toNode != null)
-                        {
-                            var p1 = Transform(fromNode.X, fromNode.Y);
-                            var p2 = Transform(toNode.X, toNode.Y);
-
-                            var pathLine = new Line
-                            {
-                                X1 = p1.X,
-                                Y1 = p1.Y,
-                                X2 = p2.X,
-                                Y2 = p2.Y,
-                                Stroke = new SolidColorBrush(Color.FromRgb(255, 50, 50)), // Bright red
-                                StrokeThickness = pathThickness
-                            };
-
-                            MapCanvas.Children.Add(pathLine);
-                        }
-                    }
-                }
-            }
         }
 
         // Render links (lines) - Draw ALL links from ALL layers
@@ -444,7 +411,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 if (vehicle.Path != null && vehicle.Path.Count >= 2)
                 {
                     var pathThickness = Math.Max(2, Math.Min(8, 4 * _zoomLevel));
-                    
+
                     for (int i = 0; i < vehicle.Path.Count - 1; i++)
                     {
                         var fromNodeName = vehicle.Path[i];
@@ -484,7 +451,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 {
                     var pos = Transform(node.X, node.Y);
 
-                    var nodeSize = Math.Max(6, Math.Min(20, 12 * _zoomLevel));
+                    var nodeSize = _nodeSize * _zoomLevel;
                     var glowSize = nodeSize + 4;
                     var strokeWidth = Math.Max(1, 2 * _zoomLevel);
 
@@ -527,115 +494,28 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 var pos = Transform(vehicle.Coordinates[0], vehicle.Coordinates[1]);
 
                 // Choose color based on vehicle state
-                var (vehicleColor, glowColor, _) = GetVehicleColors(vehicle);
+                var (vehicleColor, _, _) = GetVehicleColors(vehicle);
 
                 // Scale vehicle size based on zoom level
-                var vehicleSize = Math.Max(8, Math.Min(24, 16 * _zoomLevel));
-                var strokeWidth = Math.Max(1, 2 * _zoomLevel);
+                var vehicleSize = _vehicleSize * _zoomLevel;
+                var strokeWidth = Math.Max(1, _zoomLevel);
 
-                // Create forklift shape using a group
-                var forkliftGroup = new Canvas();
-                
-                // Main body (larger rectangle)
-                var mainBody = new Rectangle
-                {
-                    Width = vehicleSize * 0.8,
-                    Height = vehicleSize * 0.6,
-                    Fill = new SolidColorBrush(vehicleColor),
-                    Stroke = new SolidColorBrush(Color.FromRgb(40, 40, 40)),
-                    StrokeThickness = strokeWidth * 0.5,
-                    RadiusX = 2,
-                    RadiusY = 2
-                };
-                Canvas.SetLeft(mainBody, vehicleSize * 0.1);
-                Canvas.SetTop(mainBody, vehicleSize * 0.2);
-                forkliftGroup.Children.Add(mainBody);
+                // Draw vehicle as simple vertical rectangle
+                var vehicleWidth = vehicleSize * 0.65;
+                var vehicleHeight = vehicleSize * 1.2;
 
-                // Forks (two small rectangles at front)
-                var fork1 = new Rectangle
+                var vehicleRect = new Rectangle
                 {
-                    Width = vehicleSize * 0.15,
-                    Height = vehicleSize * 0.35,
-                    Fill = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
-                    RadiusX = 1,
-                    RadiusY = 1
-                };
-                Canvas.SetLeft(fork1, 0);
-                Canvas.SetTop(fork1, vehicleSize * 0.25);
-                forkliftGroup.Children.Add(fork1);
-
-                var fork2 = new Rectangle
-                {
-                    Width = vehicleSize * 0.15,
-                    Height = vehicleSize * 0.35,
-                    Fill = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
-                    RadiusX = 1,
-                    RadiusY = 1
-                };
-                Canvas.SetLeft(fork2, 0);
-                Canvas.SetTop(fork2, vehicleSize * 0.65);
-                forkliftGroup.Children.Add(fork2);
-
-                // Cabin (smaller rectangle at back)
-                var cabin = new Rectangle
-                {
-                    Width = vehicleSize * 0.4,
-                    Height = vehicleSize * 0.4,
-                    Fill = new SolidColorBrush(Color.FromRgb(
-                        (byte)Math.Min(255, vehicleColor.R + 40),
-                        (byte)Math.Min(255, vehicleColor.G + 40),
-                        (byte)Math.Min(255, vehicleColor.B + 40))),
-                    Stroke = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-                    StrokeThickness = strokeWidth * 0.3,
-                    RadiusX = 2,
-                    RadiusY = 2
-                };
-                Canvas.SetLeft(cabin, vehicleSize * 0.45);
-                Canvas.SetTop(cabin, vehicleSize * 0.3);
-                forkliftGroup.Children.Add(cabin);
-
-                // Direction indicator (small triangle)
-                var directionTriangle = new Polygon
-                {
-                    Points = new PointCollection(new[]
-                    {
-                        new Point(-2, vehicleSize * 0.15),
-                        new Point(vehicleSize * 0.25, vehicleSize * 0.5),
-                        new Point(-2, vehicleSize * 0.85)
-                    }),
-                    Fill = new SolidColorBrush(Color.FromRgb(255, 215, 0)),
-                    Stroke = new SolidColorBrush(Color.FromRgb(200, 170, 0)),
-                    StrokeThickness = 0.5
-                };
-                forkliftGroup.Children.Add(directionTriangle);
-
-                // Status indicator (small circle)
-                var statusIndicator = new Ellipse
-                {
-                    Width = vehicleSize * 0.25,
-                    Height = vehicleSize * 0.25,
+                    Width = vehicleWidth,
+                    Height = vehicleHeight,
                     Fill = new SolidColorBrush(vehicleColor),
                     Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
-                    StrokeThickness = strokeWidth * 0.6
-                };
-                Canvas.SetLeft(statusIndicator, vehicleSize * 0.55);
-                Canvas.SetTop(statusIndicator, vehicleSize * 0.1);
-                forkliftGroup.Children.Add(statusIndicator);
-
-                // Position the forklift group
-                Canvas.SetLeft(forkliftGroup, pos.X - vehicleSize / 2);
-                Canvas.SetTop(forkliftGroup, pos.Y - vehicleSize / 2);
-                
-                // Add subtle glow effect
-                forkliftGroup.Effect = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color = vehicleColor,
-                    BlurRadius = 6,
-                    ShadowDepth = 0,
-                    Opacity = 0.4
+                    StrokeThickness = strokeWidth
                 };
 
-                MapCanvas.Children.Add(forkliftGroup);
+                Canvas.SetLeft(vehicleRect, pos.X - vehicleWidth / 2);
+                Canvas.SetTop(vehicleRect, pos.Y - vehicleHeight / 2);
+                MapCanvas.Children.Add(vehicleRect);
 
                 // Vehicle label with state info
                 var vehicleLabel = new TextBlock
@@ -693,11 +573,22 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         var currentPosition = e.GetPosition(MapCanvas);
         var delta = currentPosition - _lastMousePosition;
 
-        // Pan in all directions (both X and Y)
-        OffsetX += delta.X;
-        OffsetY += delta.Y;
+        // Update offset directly
+        _offsetX += delta.X;
+        _offsetY += delta.Y;
 
         _lastMousePosition = currentPosition;
+
+        // Throttle rendering during drag - only render every 33ms (~30 FPS)
+        var now = DateTime.Now;
+        if ((now - _lastRenderTime).TotalMilliseconds >= 33)
+        {
+            _lastRenderTime = now;
+            OnPropertyChanged(nameof(OffsetX));
+            OnPropertyChanged(nameof(OffsetY));
+            RenderMap();
+        }
+
         e.Handled = true;
     }
 
@@ -847,13 +738,17 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             _rotationAngle = settings.RotationAngle;
             _zoomLevel = settings.ZoomLevel;
             _isFlippedHorizontally = settings.IsFlippedHorizontally;
-            
+            _nodeSize = settings.NodeSize;
+            _vehicleSize = settings.VehicleSize;
+
             OnPropertyChanged(nameof(OffsetX));
             OnPropertyChanged(nameof(OffsetY));
             OnPropertyChanged(nameof(RotationAngle));
             OnPropertyChanged(nameof(ZoomLevel));
             OnPropertyChanged(nameof(IsFlippedHorizontally));
-            
+            OnPropertyChanged(nameof(NodeSize));
+            OnPropertyChanged(nameof(VehicleSize));
+
             ScheduleRender();
         }
         catch (Exception ex)
@@ -872,7 +767,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 OffsetY = _offsetY,
                 RotationAngle = _rotationAngle,
                 ZoomLevel = _zoomLevel,
-                IsFlippedHorizontally = _isFlippedHorizontally
+                IsFlippedHorizontally = _isFlippedHorizontally,
+                NodeSize = _nodeSize,
+                VehicleSize = _vehicleSize
             };
             
             await _settingsService.SaveSettingsAsync(settings);

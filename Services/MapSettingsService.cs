@@ -19,6 +19,8 @@ public class MapSettingsService
         public double ZoomLevel { get; set; } = 1.0;
         public bool IsFlippedHorizontally { get; set; } = false;
         public bool ShowNodeLabels { get; set; } = false;
+        public double NodeSize { get; set; } = 5;
+        public double VehicleSize { get; set; } = 16;
         public DateTime LastSaved { get; set; } = DateTime.Now;
     }
 
