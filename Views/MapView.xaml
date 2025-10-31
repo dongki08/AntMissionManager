@@ -13,7 +13,7 @@
                 BorderThickness="1"
                 Margin="8">
             <!-- Map Canvas -->
-            <Border Background="#0a0a0a"
+            <Border Background="#212121"
                     CornerRadius="12"
                     ClipToBounds="True">
                 <Grid>

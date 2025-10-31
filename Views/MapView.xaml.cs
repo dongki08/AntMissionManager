@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -29,6 +30,11 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private double _vehicleSize = 16;
     private DispatcherTimer? _vehicleUpdateTimer;
     private const string VehicleElementTag = "__VehicleLayer";
+    private const string LinkElementTag = "__LinkLayer";
+    private const string NodeElementTag = "__NodeMarker";
+    private const string NodeGlowElementTag = "__NodeGlow";
+    private const double BaseLinkStrokeThickness = 2.5;
+    private const double BaseNodeStrokeThickness = 1.6;
     private readonly Dictionary<string, SolidColorBrush> _vehiclePathBrushes = new();
     private readonly Color[] _vehiclePathPalette =
     {
@@ -61,6 +67,15 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private readonly Dictionary<string, UIElement> _cachedElements = new();
     private List<MapData>? _cachedMapData;
     private DateTime _lastRenderTime = DateTime.MinValue;
+    private double _lastStyleZoom = double.NaN;
+    private TextBlock _debugMessage;
+    
+    // Transform fields for viewport manipulation
+    private readonly Canvas _drawingSurface = new Canvas();
+    private readonly ScaleTransform _scaleTransform = new ScaleTransform();
+    private readonly RotateTransform _rotateTransform = new RotateTransform();
+    private readonly TranslateTransform _translateTransform = new TranslateTransform();
+    private readonly TransformGroup _transformGroup = new TransformGroup();
     
     // Settings panel state
     private bool _isSettingsPanelOpen = false;
@@ -114,7 +129,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 _zoomLevel = newValue;
                 OnPropertyChanged();
-                ScheduleRender();
+                UpdateViewTransform();
             }
         }
     }
@@ -128,7 +143,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 _offsetX = value;
                 OnPropertyChanged();
-                ScheduleRender();
+                UpdateViewTransform();
             }
         }
     }
@@ -142,7 +157,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 _offsetY = value;
                 OnPropertyChanged();
-                ScheduleRender();
+                UpdateViewTransform();
             }
         }
     }
@@ -157,7 +172,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 _rotationAngle = newValue;
                 OnPropertyChanged();
-                ScheduleRender();
+                UpdateViewTransform();
             }
         }
     }
@@ -171,7 +186,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             {
                 _isFlippedHorizontally = value;
                 OnPropertyChanged();
-                ScheduleRender();
+                UpdateViewTransform();
             }
         }
     }
@@ -211,11 +226,55 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
+    private void UpdateViewTransform()
+    {
+        // The center of rotation/scaling is the center of the viewport.
+        var centerX = MapCanvas.ActualWidth / 2;
+        var centerY = MapCanvas.ActualHeight / 2;
+
+        _scaleTransform.CenterX = centerX;
+        _scaleTransform.CenterY = centerY;
+        _rotateTransform.CenterX = centerX;
+        _rotateTransform.CenterY = centerY;
+
+        _scaleTransform.ScaleX = _zoomLevel * (_isFlippedHorizontally ? -1 : 1);
+        _scaleTransform.ScaleY = _zoomLevel;
+        _rotateTransform.Angle = _rotationAngle;
+        _translateTransform.X = _offsetX;
+        _translateTransform.Y = _offsetY;
+
+        UpdateStaticElementAppearance();
+    }
+
     public ICommand ResetViewCommand { get; }
 
     public MapView()
     {
         InitializeComponent();
+        
+        // Setup viewport model
+        _transformGroup.Children.Add(_scaleTransform);
+        _transformGroup.Children.Add(_rotateTransform);
+        _transformGroup.Children.Add(_translateTransform);
+        _drawingSurface.RenderTransform = _transformGroup;
+        MapCanvas.Children.Add(_drawingSurface);
+        
+        // Bind the drawing surface size to the parent canvas size
+        _drawingSurface.SetBinding(WidthProperty, new Binding("ActualWidth") { Source = MapCanvas });
+        _drawingSurface.SetBinding(HeightProperty, new Binding("ActualHeight") { Source = MapCanvas });
+        
+        // Initialize and add the debug message TextBlock
+        _debugMessage = new TextBlock
+        {
+            Foreground = Brushes.White,
+            FontSize = 20,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Canvas.SetLeft(_debugMessage, 100);
+        Canvas.SetTop(_debugMessage, 100);
+        MapCanvas.Children.Add(_debugMessage);
+        
         // DataContext는 부모로부터 상속받아야 MapData 바인딩이 작동함
         Loaded += MapView_Loaded;
         Unloaded += MapView_Unloaded;
@@ -296,37 +355,31 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         _zoomLevel = 1.0;
         _offsetX = 0;
         _offsetY = 0;
+        // In the new model, we must update the transforms after resetting state.
+        UpdateViewTransform();
         RenderMap();
     }
 
     private void RenderMap()
     {
-        if (!_skipStaticRender)
-        {
-            MapCanvas.Children.Clear();
-            _cachedElements.Clear();
-        }
-
         var mapData = _cachedMapData ?? MapData;
 
         if (mapData == null || !mapData.Any())
         {
-            _skipStaticRender = false;
-            MapCanvas.Children.Clear();
-            _cachedElements.Clear();
-
-            var debugText = new TextBlock
-            {
-                Text = "Waiting for map data...",
-                Foreground = Brushes.White,
-                FontSize = 20,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Canvas.SetLeft(debugText, 100);
-            Canvas.SetTop(debugText, 100);
-            MapCanvas.Children.Add(debugText);
+            _drawingSurface.Visibility = Visibility.Collapsed;
+            _debugMessage.Text = mapData == null ? "Waiting for map data..." : "No nodes in map data!";
+            _debugMessage.Visibility = Visibility.Visible;
             return;
+        }
+        
+        _drawingSurface.Visibility = Visibility.Visible;
+        _debugMessage.Visibility = Visibility.Collapsed;
+        
+        if (!_skipStaticRender)
+        {
+            _drawingSurface.Children.Clear();
+            _cachedElements.Clear();
+            _lastStyleZoom = double.NaN;
         }
 
         var canvasWidth = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
@@ -374,7 +427,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         var baseScale = Math.Min(scaleX, scaleY);
 
         // Apply zoom
-        var scale = baseScale * _zoomLevel;
+        var scale = baseScale;
 
         // Center offset
         var centerOffsetX = canvasWidth / 2 - (minX + mapWidth / 2) * scale;
@@ -383,38 +436,12 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         // Transform helper with rotation and flip
         Point Transform(double x, double y)
         {
-            // Apply scaling first
             var scaledX = x * scale;
             var scaledY = y * scale;
 
-            // Apply horizontal flip if enabled
-            if (_isFlippedHorizontally)
-            {
-                var mapCenterX = (minX + maxX) / 2 * scale;
-                scaledX = 2 * mapCenterX - scaledX;
-            }
-
-            // Apply rotation if any
-            if (Math.Abs(_rotationAngle) > 0.001)
-            {
-                var radians = _rotationAngle * Math.PI / 180.0;
-                var cos = Math.Cos(radians);
-                var sin = Math.Sin(radians);
-
-                // Rotate around the center of the map
-                var mapCenterX = (minX + maxX) / 2 * scale;
-                var mapCenterY = (minY + maxY) / 2 * scale;
-
-                var relativeX = scaledX - mapCenterX;
-                var relativeY = scaledY - mapCenterY;
-
-                scaledX = mapCenterX + (relativeX * cos - relativeY * sin);
-                scaledY = mapCenterY + (relativeX * sin + relativeY * cos);
-            }
-
             return new Point(
-                scaledX + centerOffsetX + _offsetX,
-                scaledY + centerOffsetY + _offsetY
+                scaledX + centerOffsetX,
+                scaledY + centerOffsetY
             );
         }
 
@@ -436,10 +463,11 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                             X2 = p2.X,
                             Y2 = p2.Y,
                             Stroke = new SolidColorBrush(Color.FromRgb(0, 191, 255)),
-                            StrokeThickness = 2.5
+                            StrokeThickness = BaseLinkStrokeThickness,
+                            Tag = LinkElementTag
                         };
 
-                        MapCanvas.Children.Add(line);
+                        _drawingSurface.Children.Add(line);
                     }
                 }
             }
@@ -463,21 +491,24 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                     {
                         var pos = Transform(node.X, node.Y);
 
-                        var nodeSize = _nodeSize * _zoomLevel;
+                        var nodeSize = _nodeSize;
                         var glowSize = nodeSize + 4;
-                        var strokeWidth = Math.Max(1, 2 * _zoomLevel);
+                        var strokeWidth = BaseNodeStrokeThickness;
 
                         var outerGlow = new Ellipse
                         {
                             Width = glowSize,
                             Height = glowSize,
                             Fill = new SolidColorBrush(Color.FromArgb(80, 255, 215, 0)),
-                            StrokeThickness = 0
+                            StrokeThickness = 0,
+                            Tag = NodeGlowElementTag,
+                            RenderTransformOrigin = new Point(0.5, 0.5),
+                            RenderTransform = new ScaleTransform(1.0, 1.0)
                         };
 
                         Canvas.SetLeft(outerGlow, pos.X - glowSize / 2);
                         Canvas.SetTop(outerGlow, pos.Y - glowSize / 2);
-                        MapCanvas.Children.Add(outerGlow);
+                        _drawingSurface.Children.Add(outerGlow);
 
                         var nodeEllipse = new Ellipse
                         {
@@ -485,18 +516,23 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                             Height = nodeSize,
                             Fill = new SolidColorBrush(Color.FromRgb(255, 215, 0)),
                             Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
-                            StrokeThickness = strokeWidth
+                            StrokeThickness = strokeWidth,
+                            Tag = NodeElementTag,
+                            RenderTransformOrigin = new Point(0.5, 0.5),
+                            RenderTransform = new ScaleTransform(1.0, 1.0)
                         };
 
                         Canvas.SetLeft(nodeEllipse, pos.X - nodeSize / 2);
                         Canvas.SetTop(nodeEllipse, pos.Y - nodeSize / 2);
-                        MapCanvas.Children.Add(nodeEllipse);
+                        _drawingSurface.Children.Add(nodeEllipse);
                     }
                 }
             }
         }
 
         RenderVehicles(Transform, nodeLookup);
+
+        UpdateStaticElementAppearance();
 
         _skipStaticRender = false;
     }
@@ -550,7 +586,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             OnPropertyChanged(nameof(OffsetY));
         }
 
-        ScheduleRender();
+        UpdateViewTransform();
+        QueueDynamicRefresh();
     }
 
     private bool TryGetTransformContext(double zoomLevel, out MapTransformContext context)
@@ -694,11 +731,11 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
     private void RemoveVehicleElements()
     {
-        for (int i = MapCanvas.Children.Count - 1; i >= 0; i--)
+        for (int i = _drawingSurface.Children.Count - 1; i >= 0; i--)
         {
-            if (MapCanvas.Children[i] is FrameworkElement element && Equals(element.Tag, VehicleElementTag))
+            if (_drawingSurface.Children[i] is FrameworkElement element && Equals(element.Tag, VehicleElementTag))
             {
-                MapCanvas.Children.RemoveAt(i);
+                _drawingSurface.Children.RemoveAt(i);
             }
         }
     }
@@ -722,7 +759,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             var key = NormalizeVehicleKey(vehicle.Name);
             activeKeys.Add(key);
             var pathBrush = GetVehiclePathBrush(key);
-            var pathThickness = Math.Max(2, Math.Min(8, 4 * _zoomLevel));
+            var effectiveZoom = Math.Max(_zoomLevel, MIN_ZOOM);
+            var pathThickness = Math.Clamp(4.0 / Math.Pow(effectiveZoom, 0.8), 1.5, 6.0);
 
             for (int i = 0; i < vehicle.Path.Count - 1; i++)
             {
@@ -746,7 +784,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                     Tag = VehicleElementTag
                 };
 
-                MapCanvas.Children.Add(pathLine);
+                _drawingSurface.Children.Add(pathLine);
             }
         }
 
@@ -784,10 +822,11 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
             var pos = transform(vehicle.Coordinates[0], vehicle.Coordinates[1]);
             var (vehicleColor, _, _) = GetVehicleColors(vehicle);
-            var vehicleSize = _vehicleSize * _zoomLevel;
-            var strokeWidth = Math.Max(1, _zoomLevel);
-            var vehicleWidth = vehicleSize * 0.65;
-            var vehicleHeight = vehicleSize * 1.2;
+            var effectiveZoom = Math.Max(_zoomLevel, MIN_ZOOM);
+            var baseVehicleSize = _vehicleSize;
+            var vehicleWidth = baseVehicleSize * 0.65 / effectiveZoom;
+            var vehicleHeight = baseVehicleSize * 1.2 / effectiveZoom;
+            var strokeWidth = 1.25 / effectiveZoom;
 
             var vehicleRect = new Rectangle
             {
@@ -808,36 +847,36 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
             Canvas.SetLeft(vehicleRect, pos.X - vehicleWidth / 2);
             Canvas.SetTop(vehicleRect, pos.Y - vehicleHeight / 2);
-            MapCanvas.Children.Add(vehicleRect);
+            _drawingSurface.Children.Add(vehicleRect);
 
             var vehicleLabel = new TextBlock
             {
                 Text = $"{vehicle.Name}",
                 Foreground = new SolidColorBrush(vehicleColor),
-                FontSize = 12,
+                FontSize = 12 / effectiveZoom,
                 FontWeight = FontWeights.Bold,
                 Background = new SolidColorBrush(Color.FromArgb(230, 0, 0, 0)),
-                Padding = new Thickness(6, 3, 6, 3),
+                Padding = new Thickness(6 / effectiveZoom, 3 / effectiveZoom, 6 / effectiveZoom, 3 / effectiveZoom),
                 Tag = VehicleElementTag
             };
 
-            Canvas.SetLeft(vehicleLabel, pos.X + 12);
-            Canvas.SetTop(vehicleLabel, pos.Y - 10);
-            MapCanvas.Children.Add(vehicleLabel);
+            Canvas.SetLeft(vehicleLabel, pos.X + 12 / effectiveZoom);
+            Canvas.SetTop(vehicleLabel, pos.Y - 10 / effectiveZoom);
+            _drawingSurface.Children.Add(vehicleLabel);
 
             var stateLabel = new TextBlock
             {
                 Text = vehicle.VehicleStateText,
                 Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
-                FontSize = 9,
+                FontSize = 9 / effectiveZoom,
                 Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
-                Padding = new Thickness(4, 1, 4, 1),
+                Padding = new Thickness(4 / effectiveZoom, 1 / effectiveZoom, 4 / effectiveZoom, 1 / effectiveZoom),
                 Tag = VehicleElementTag
             };
 
-            Canvas.SetLeft(stateLabel, pos.X + 12);
-            Canvas.SetTop(stateLabel, pos.Y + 5);
-            MapCanvas.Children.Add(stateLabel);
+            Canvas.SetLeft(stateLabel, pos.X + 12 / effectiveZoom);
+            Canvas.SetTop(stateLabel, pos.Y + 5 / effectiveZoom);
+            _drawingSurface.Children.Add(stateLabel);
         }
     }
 
@@ -922,43 +961,27 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
     private void MapCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.Handled) return;
         _isDragging = true;
-        _lastMousePosition = e.GetPosition(MapCanvas);
+        _vehicleUpdateTimer?.Stop(); // Pause vehicle updates during drag
+        _lastMousePosition = e.GetPosition(this);
         MapCanvas.CaptureMouse();
         e.Handled = true;
     }
 
     private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
     {
-        if (!_isDragging)
-            return;
-
-        var currentPosition = e.GetPosition(MapCanvas);
-        var delta = currentPosition - _lastMousePosition;
-
-        // Update offset directly
-        _offsetX += delta.X;
-        _offsetY += delta.Y;
-
-        _lastMousePosition = currentPosition;
-
-        // Throttle rendering during drag - only render every 33ms (~30 FPS)
-        var now = DateTime.Now;
-        if ((now - _lastRenderTime).TotalMilliseconds >= 33)
-        {
-            _lastRenderTime = now;
-            OnPropertyChanged(nameof(OffsetX));
-            OnPropertyChanged(nameof(OffsetY));
-            RenderMap();
-        }
-
-        e.Handled = true;
+        // This event handler is now superseded by the logic in the OnMouseMove override.
+        // The override provides a more reliable event sequence.
+        // We leave this handler attached (from XAML) but keep it empty.
     }
 
     private void MapCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        if (!_isDragging) return;
         _isDragging = false;
         MapCanvas.ReleaseMouseCapture();
+        _vehicleUpdateTimer?.Start(); // Resume vehicle updates
         e.Handled = true;
     }
 
@@ -1072,6 +1095,57 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
     #region Optimization and Settings Methods
 
+    private void UpdateStaticElementAppearance()
+    {
+        if (_drawingSurface.Children.Count == 0)
+        {
+            return;
+        }
+
+        var effectiveZoom = Math.Max(_zoomLevel, MIN_ZOOM);
+
+        if (!double.IsNaN(_lastStyleZoom) && Math.Abs(_lastStyleZoom - effectiveZoom) < 0.001)
+        {
+            return;
+        }
+
+        _lastStyleZoom = effectiveZoom;
+        var linkThicknessFactor = Math.Clamp(1.0 / Math.Pow(effectiveZoom, 1.1), 0.35, 2.0);
+        var nodeScaleFactor = Math.Clamp(1.0 / Math.Pow(effectiveZoom, 1.2), 0.35, 12.0);
+        var glowScaleFactor = Math.Clamp(1.0 / Math.Pow(effectiveZoom, 1.1), 0.35, 12.0);
+        var nodeStrokeFactor = Math.Clamp(Math.Pow(effectiveZoom, -1.1), 0.45, 1.5);
+
+        foreach (var child in _drawingSurface.Children)
+        {
+            switch (child)
+            {
+                case Line line when Equals(line.Tag, LinkElementTag):
+                    line.StrokeThickness = BaseLinkStrokeThickness * linkThicknessFactor;
+                    break;
+                case Ellipse ellipse when Equals(ellipse.Tag, NodeElementTag):
+                    ApplyScaleTransform(ellipse, nodeScaleFactor);
+                    ellipse.StrokeThickness = BaseNodeStrokeThickness * nodeStrokeFactor;
+                    break;
+                case Ellipse ellipse when Equals(ellipse.Tag, NodeGlowElementTag):
+                    ApplyScaleTransform(ellipse, glowScaleFactor);
+                    break;
+            }
+        }
+    }
+
+    private static void ApplyScaleTransform(UIElement element, double scale)
+    {
+        if (element.RenderTransform is not ScaleTransform scaleTransform)
+        {
+            scaleTransform = new ScaleTransform(1.0, 1.0);
+            element.RenderTransform = scaleTransform;
+            element.RenderTransformOrigin = new Point(0.5, 0.5);
+        }
+
+        scaleTransform.ScaleX = scale;
+        scaleTransform.ScaleY = scale;
+    }
+
     private void ScheduleRender()
     {
         if (!_needsRender)
@@ -1079,6 +1153,18 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             _needsRender = true;
             _renderTimer?.Start();
         }
+    }
+
+    private void QueueDynamicRefresh()
+    {
+        if (_needsRender)
+        {
+            return;
+        }
+
+        _skipStaticRender = true;
+        _needsRender = true;
+        _renderTimer?.Start();
     }
 
     private void RenderTimer_Tick(object? sender, EventArgs e)
@@ -1194,6 +1280,16 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     {
         if (_cachedMapData == null) return null;
 
+        // Get the inverse of the total view transform
+        var viewTransform = _drawingSurface.RenderTransform.Value;
+        if (!viewTransform.HasInverse) return null;
+        viewTransform.Invert();
+
+        // Transform mouse position from screen space to the untransformed "drawing" space
+        Point drawingPoint = viewTransform.Transform(position);
+
+        // Now, we need to invert the base transformation (scaling and centering) 
+        // that was applied in RenderMap to get back to original map coordinates.
         var canvasWidth = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
         var canvasHeight = MapCanvas.ActualHeight > 0 ? MapCanvas.ActualHeight : 600;
 
@@ -1213,52 +1309,37 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         var scaleX = (canvasWidth - padding * 2) / mapWidth;
         var scaleY = (canvasHeight - padding * 2) / mapHeight;
         var baseScale = Math.Min(scaleX, scaleY);
-        var scale = baseScale * _zoomLevel;
+        if (baseScale <= 0) return null;
 
-        var centerOffsetX = canvasWidth / 2 - (minX + mapWidth / 2) * scale;
-        var centerOffsetY = canvasHeight / 2 - (minY + mapHeight / 2) * scale;
+        var centerOffsetX = canvasWidth / 2 - (minX + mapWidth / 2) * baseScale;
+        var centerOffsetY = canvasHeight / 2 - (minY + mapHeight / 2) * baseScale;
+
+        // Convert drawingPoint to original map coordinates
+        var mapX = (drawingPoint.X - centerOffsetX) / baseScale;
+        var mapY = (drawingPoint.Y - centerOffsetY) / baseScale;
+
+        // Find the closest node in map coordinates, using a fixed pixel radius
+        const double hitRadiusInPixels = 15.0;
+        // Convert the pixel radius to map units by considering the total scale
+        var totalScale = baseScale * _zoomLevel;
+        var hitRadiusInMapUnits = hitRadiusInPixels / totalScale;
+
+        MapNode? closestNode = null;
+        var minDistanceSq = hitRadiusInMapUnits * hitRadiusInMapUnits;
 
         foreach (var node in allNodes)
         {
-            // Apply same transform as in rendering
-            var scaledX = node.X * scale;
-            var scaledY = node.Y * scale;
-            
-            // Apply horizontal flip if enabled
-            if (_isFlippedHorizontally)
+            var dx = node.X - mapX;
+            var dy = node.Y - mapY;
+            var distSq = dx * dx + dy * dy;
+            if (distSq < minDistanceSq)
             {
-                var mapCenterX = (minX + maxX) / 2 * scale;
-                scaledX = 2 * mapCenterX - scaledX;
-            }
-            
-            // Apply rotation if any
-            if (Math.Abs(_rotationAngle) > 0.001)
-            {
-                var radians = _rotationAngle * Math.PI / 180.0;
-                var cos = Math.Cos(radians);
-                var sin = Math.Sin(radians);
-                
-                var mapCenterX = (minX + maxX) / 2 * scale;
-                var mapCenterY = (minY + maxY) / 2 * scale;
-                
-                var relativeX = scaledX - mapCenterX;
-                var relativeY = scaledY - mapCenterY;
-                
-                scaledX = mapCenterX + (relativeX * cos - relativeY * sin);
-                scaledY = mapCenterY + (relativeX * sin + relativeY * cos);
-            }
-            
-            var nodeX = scaledX + centerOffsetX + _offsetX;
-            var nodeY = scaledY + centerOffsetY + _offsetY;
-
-            var distance = Math.Sqrt(Math.Pow(position.X - nodeX, 2) + Math.Pow(position.Y - nodeY, 2));
-            if (distance <= 15) // Node hit radius
-            {
-                return node;
+                minDistanceSq = distSq;
+                closestNode = node;
             }
         }
 
-        return null;
+        return closestNode;
     }
 
     #endregion
@@ -1268,12 +1349,28 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        
-        if (!_isDragging)
+
+        if (_isDragging)
         {
+            // Panning logic
+            var currentPosition = e.GetPosition(this);
+            var delta = currentPosition - _lastMousePosition;
+            _lastMousePosition = currentPosition;
+
+            _offsetX += delta.X;
+            _offsetY += delta.Y;
+
+            // Update the view transform directly
+            UpdateViewTransform();
+            
+            e.Handled = true;
+        }
+        else
+        {
+            // Hover logic (existing logic)
             var position = e.GetPosition(MapCanvas);
             var hitNode = GetNodeAtPosition(position);
-            
+
             if (hitNode != null && !string.IsNullOrEmpty(hitNode.Name) && hitNode.Name != _hoveredNodeName)
             {
                 _hoveredNodeName = hitNode.Name;
