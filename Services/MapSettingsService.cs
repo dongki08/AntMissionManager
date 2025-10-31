@@ -21,6 +21,8 @@ public class MapSettingsService
         public bool ShowNodeLabels { get; set; } = false;
         public double NodeSize { get; set; } = 5;
         public double VehicleSize { get; set; } = 16;
+        public double VehicleAngleOffset { get; set; } = 0;
+        public bool AreVehiclesFlipped { get; set; } = false;
         public DateTime LastSaved { get; set; } = DateTime.Now;
     }
 

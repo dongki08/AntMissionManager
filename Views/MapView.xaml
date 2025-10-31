@@ -256,6 +256,58 @@
                                 </Grid>
                             </StackPanel>
 
+                            <!-- Vehicle Orientation -->
+                            <StackPanel Orientation="Vertical" Margin="0,0,0,12">
+                                <TextBlock Text="Vehicle Angle Offset"
+                                          Foreground="{StaticResource SecondaryText}"
+                                          FontSize="11"
+                                          Margin="0,0,0,6"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Slider x:Name="VehicleAngleSlider"
+                                            Grid.Column="0"
+                                            Minimum="-180"
+                                            Maximum="180"
+                                            Value="{Binding VehicleAngleOffset, ElementName=mapViewControl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            TickFrequency="15"
+                                            IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center"/>
+
+                                    <TextBlock x:Name="VehicleAngleValueText"
+                                              Grid.Column="1"
+                                              Text="{Binding Value, ElementName=VehicleAngleSlider, StringFormat={}{0:F0}°}"
+                                              Foreground="{StaticResource PrimaryText}"
+                                              FontSize="11"
+                                              VerticalAlignment="Center"
+                                              Margin="8,0,0,0"
+                                              MinWidth="38"
+                                              TextAlignment="Center"/>
+
+                                    <Button Grid.Column="2"
+                                            Content="↺"
+                                            Width="28"
+                                            Height="28"
+                                            Margin="6,0,0,0"
+                                            Click="ResetVehicleAngle_Click"
+                                            ToolTip="Reset vehicle angle offset"
+                                            Style="{StaticResource ModernSecondaryButton}"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <CheckBox x:Name="VehicleFlipCheckBox"
+                                      Content="Mirror Vehicles Horizontally"
+                                      IsChecked="{Binding AreVehiclesFlipped, ElementName=mapViewControl, Mode=TwoWay}"
+                                      Checked="VehicleFlip_Checked"
+                                      Unchecked="VehicleFlip_Checked"
+                                      Foreground="{StaticResource PrimaryText}"
+                                      FontSize="11"
+                                      Margin="0,0,0,12"/>
+
                             <!-- Action Buttons -->
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Content="Complete"

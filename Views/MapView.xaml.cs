@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -29,6 +31,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private bool _isFlippedHorizontally = false;
     private double _nodeSize = 5;
     private double _vehicleSize = 16;
+    private double _vehicleAngleOffset = 0;
+    private bool _areVehiclesFlipped = false;
     private DispatcherTimer? _vehicleUpdateTimer;
     private const string VehicleVisualTag = "__VehicleVisual";
     private const string VehiclePathElementTag = "__VehiclePath";
@@ -53,6 +57,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         Color.FromRgb(70, 130, 180)   // Steel Blue
     };
     private bool _skipStaticRender = false;
+    private static readonly Regex ShapeNumberRegex = new(@"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private struct MapTransformContext
     {
@@ -71,11 +76,27 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         public double BaseThickness { get; init; }
     }
 
+    private sealed class VehicleShapeData
+    {
+        public VehicleShapeData(List<Point> normalizedPoints, double width, double height)
+        {
+            NormalizedPoints = normalizedPoints;
+            Width = width;
+            Height = height;
+        }
+
+        public IReadOnlyList<Point> NormalizedPoints { get; }
+        public double Width { get; }
+        public double Height { get; }
+    }
+
     private sealed class VehicleVisual
     {
-        public Rectangle Body { get; init; } = null!;
+        public Shape BodyElement { get; init; } = null!;
         public TextBlock NameLabel { get; init; } = null!;
         public TextBlock StateLabel { get; init; } = null!;
+        public VehicleShapeData? ShapeData { get; init; }
+        public string ShapeSignature { get; init; } = string.Empty;
     }
 
     // Settings and optimization
@@ -99,6 +120,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private bool _isSettingsPanelOpen = false;
     private double _originalRotationAngle = 0;
     private bool _originalFlipState = false;
+    private double _originalVehicleAngleOffset = 0;
+    private bool _originalVehicleFlipState = false;
 
     // Snackbar functionality
     private Border? _snackbar;
@@ -235,6 +258,35 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 _vehicleSize = newValue;
                 OnPropertyChanged();
                 ScheduleRender();
+            }
+        }
+    }
+
+    public double VehicleAngleOffset
+    {
+        get => _vehicleAngleOffset;
+        set
+        {
+            var newValue = Math.Clamp(value, -180, 180);
+            if (Math.Abs(_vehicleAngleOffset - newValue) > 0.001)
+            {
+                _vehicleAngleOffset = newValue;
+                OnPropertyChanged();
+                QueueDynamicRefresh();
+            }
+        }
+    }
+
+    public bool AreVehiclesFlipped
+    {
+        get => _areVehiclesFlipped;
+        set
+        {
+            if (_areVehiclesFlipped != value)
+            {
+                _areVehiclesFlipped = value;
+                OnPropertyChanged();
+                QueueDynamicRefresh();
             }
         }
     }
@@ -780,7 +832,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
             var vehicleKey = NormalizeVehicleKey(vehicle.Name);
             activeKeys.Add(vehicleKey);
-            var pathBrush = GetVehiclePathBrush(vehicleKey, vehicle);
+            var pathBrush = GetVehiclePathBrush(vehicleKey);
             var effectiveZoom = Math.Max(_zoomLevel, MIN_ZOOM);
             var baseThickness = Math.Clamp(4.0 / Math.Pow(effectiveZoom, 0.8), 1.5, 6.0);
 
@@ -933,46 +985,89 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             var vehicleKey = NormalizeVehicleKey(vehicle.Name);
             activeKeys.Add(vehicleKey);
 
-            var pathBrush = GetVehiclePathBrush(vehicleKey, vehicle);
+            var pathBrush = GetVehiclePathBrush(vehicleKey);
             var pathColor = pathBrush.Color;
             var pos = transform(vehicle.Coordinates[0], vehicle.Coordinates[1]);
             var (vehicleColor, _, _) = GetVehicleColors(vehicle);
-            var effectiveZoom = Math.Max(_zoomLevel, MIN_ZOOM);
-            var baseVehicleSize = _vehicleSize;
-            var vehicleWidth = baseVehicleSize * 0.65 / effectiveZoom;
-            var vehicleHeight = baseVehicleSize * 1.2 / effectiveZoom;
-            var strokeWidth = 1.25 / effectiveZoom;
+            var zoomScale = Math.Max(Math.Abs(_scaleTransform.ScaleX), MIN_ZOOM);
+            var shapeSignature = BuildVehicleShapeSignature(vehicle);
 
-            var isNewVisual = !_vehicleVisuals.TryGetValue(vehicleKey, out var visual);
-            if (isNewVisual)
+            if (_vehicleVisuals.TryGetValue(vehicleKey, out var cachedVisual) &&
+                !string.Equals(cachedVisual.ShapeSignature, shapeSignature, StringComparison.Ordinal))
             {
-                visual = CreateVehicleVisual(vehicleColor, strokeWidth, pathColor);
-                _vehicleVisuals[vehicleKey] = visual;
-                _drawingSurface.Children.Add(visual.Body);
-                _drawingSurface.Children.Add(visual.NameLabel);
-                _drawingSurface.Children.Add(visual.StateLabel);
+                RemoveVehicleVisual(cachedVisual);
+                _vehicleVisuals.Remove(vehicleKey);
+                cachedVisual = null;
             }
 
-            UpdateVehicleVisual(vehicle, visual!, pos, transform, nodeLookup, vehicleColor, pathColor, vehicleWidth, vehicleHeight, strokeWidth, effectiveZoom, shouldAnimate && !isNewVisual);
+            var isNewVisual = cachedVisual == null;
+            if (isNewVisual)
+            {
+                cachedVisual = CreateVehicleVisual(vehicle, vehicleColor, 1.25, pathColor, shapeSignature);
+                _vehicleVisuals[vehicleKey] = cachedVisual;
+                _drawingSurface.Children.Add(cachedVisual.BodyElement);
+                _drawingSurface.Children.Add(cachedVisual.NameLabel);
+                _drawingSurface.Children.Add(cachedVisual.StateLabel);
+            }
+
+            var visual = cachedVisual!;
+
+            UpdateVehicleVisual(
+                vehicle,
+                visual,
+                pos,
+                transform,
+                nodeLookup,
+                pathColor,
+                vehicleColor,
+                zoomScale,
+                shouldAnimate && !isNewVisual);
         }
 
         RemoveInactiveVehicleVisuals(activeKeys);
     }
 
-    private VehicleVisual CreateVehicleVisual(Color vehicleColor, double strokeWidth, Color pathColor)
+    private VehicleVisual CreateVehicleVisual(
+        Vehicle vehicle,
+        Color vehicleColor,
+        double strokeWidth,
+        Color pathColor,
+        string shapeSignature)
     {
-        var body = new Rectangle
+        var shapeData = TryCreateVehicleShapeData(vehicle);
+        Shape bodyElement;
+
+        if (shapeData != null)
         {
-            Fill = new SolidColorBrush(vehicleColor),
-            Stroke = new SolidColorBrush(pathColor),
-            StrokeThickness = strokeWidth,
-            Tag = VehicleVisualTag
-        };
-        Canvas.SetZIndex(body, 900);
+            bodyElement = new Path
+            {
+                Fill = new SolidColorBrush(pathColor),
+                Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                StrokeThickness = strokeWidth,
+                StrokeLineJoin = PenLineJoin.Round,
+                Tag = VehicleVisualTag,
+                SnapsToDevicePixels = true
+            };
+        }
+        else
+        {
+            bodyElement = new Rectangle
+            {
+                Fill = new SolidColorBrush(pathColor),
+                Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                StrokeThickness = strokeWidth,
+                RadiusX = 6,
+                RadiusY = 6,
+                Tag = VehicleVisualTag
+            };
+        }
+
+        bodyElement.RenderTransformOrigin = new Point(0.5, 0.5);
+        Canvas.SetZIndex(bodyElement, 900);
 
         var nameLabel = new TextBlock
         {
-            Foreground = new SolidColorBrush(vehicleColor),
+            Foreground = new SolidColorBrush(pathColor),
             FontWeight = FontWeights.Bold,
             Background = new SolidColorBrush(Color.FromArgb(230, 0, 0, 0)),
             Tag = VehicleVisualTag
@@ -981,7 +1076,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
         var stateLabel = new TextBlock
         {
-            Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
+            Foreground = new SolidColorBrush(vehicleColor),
             Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
             Tag = VehicleVisualTag
         };
@@ -989,9 +1084,11 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
         return new VehicleVisual
         {
-            Body = body,
+            BodyElement = bodyElement,
             NameLabel = nameLabel,
-            StateLabel = stateLabel
+            StateLabel = stateLabel,
+            ShapeData = shapeData,
+            ShapeSignature = shapeSignature
         };
     }
 
@@ -1001,76 +1098,406 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         Point bodyCenter,
         Func<double, double, Point> transform,
         Dictionary<string, MapNode> nodeLookup,
-        Color vehicleColor,
         Color pathColor,
-        double vehicleWidth,
-        double vehicleHeight,
-        double strokeWidth,
-        double effectiveZoom,
+        Color stateColor,
+        double zoomScale,
         bool animate)
     {
-        visual.Body.Width = vehicleWidth;
-        visual.Body.Height = vehicleHeight;
-        visual.Body.StrokeThickness = strokeWidth;
+        var desiredWidth = _vehicleSize * 0.68;
+        var desiredHeight = _vehicleSize * 1.1;
+        var bodyWidth = desiredWidth;
+        var bodyHeight = desiredHeight;
 
-        if (visual.Body.Fill is SolidColorBrush bodyFill)
+        var bodyElement = visual.BodyElement;
+
+        if (bodyElement.Fill is SolidColorBrush bodyFill)
         {
-            bodyFill.Color = vehicleColor;
+            bodyFill.Color = pathColor;
         }
         else
         {
-            visual.Body.Fill = new SolidColorBrush(vehicleColor);
+            bodyElement.Fill = new SolidColorBrush(pathColor);
         }
 
-        if (visual.Body.Stroke is SolidColorBrush strokeBrush)
+        if (bodyElement.Stroke is SolidColorBrush strokeBrush)
         {
-            strokeBrush.Color = pathColor;
+            strokeBrush.Color = Color.FromRgb(255, 255, 255);
         }
         else
         {
-            visual.Body.Stroke = new SolidColorBrush(pathColor);
+            bodyElement.Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255));
         }
+
+        if (visual.ShapeData != null && bodyElement is Path pathShape)
+        {
+            var actualSize = UpdateVehicleShapePath(pathShape, visual.ShapeData, desiredWidth, desiredHeight);
+            bodyWidth = actualSize.Width;
+            bodyHeight = actualSize.Height;
+            bodyElement.Width = bodyWidth;
+            bodyElement.Height = bodyHeight;
+        }
+        else if (bodyElement is Rectangle rectangle)
+        {
+            rectangle.Width = desiredWidth;
+            rectangle.Height = desiredHeight;
+            rectangle.RadiusX = Math.Max(2, desiredWidth * 0.12);
+            rectangle.RadiusY = Math.Max(2, desiredHeight * 0.12);
+            bodyWidth = desiredWidth;
+            bodyHeight = desiredHeight;
+        }
+        else
+        {
+            bodyElement.Width = desiredWidth;
+            bodyElement.Height = desiredHeight;
+        }
+
+        var strokeThickness = Math.Clamp(bodyWidth * 0.02, 0.3, 0.6);
+        bodyElement.StrokeThickness = strokeThickness;
 
         var heading = ComputeVehicleAngle(vehicle, transform, nodeLookup);
-        if (visual.Body.RenderTransform is not RotateTransform rotateTransform)
+        var rawAngle = heading.HasValue ? NormalizeAngle(heading.Value - 90) : 0;
+        var adjustedAngle = NormalizeAngle(rawAngle - _rotationAngle);
+        if (_isFlippedHorizontally)
         {
-            rotateTransform = new RotateTransform();
-            visual.Body.RenderTransform = rotateTransform;
-            visual.Body.RenderTransformOrigin = new Point(0.5, 0.5);
+            adjustedAngle = NormalizeAngle(-adjustedAngle);
         }
-        rotateTransform.Angle = heading.HasValue ? NormalizeAngle(heading.Value - 90) : 0;
+        var finalAngle = NormalizeAngle(adjustedAngle + _vehicleAngleOffset);
 
-        visual.NameLabel.Text = vehicle.Name ?? string.Empty;
-        visual.NameLabel.FontSize = 12 / effectiveZoom;
-        visual.NameLabel.FontWeight = FontWeights.Bold;
-        visual.NameLabel.Padding = new Thickness(6 / effectiveZoom, 3 / effectiveZoom, 6 / effectiveZoom, 3 / effectiveZoom);
-        if (visual.NameLabel.Foreground is SolidColorBrush nameBrush)
+        TransformGroup transformGroup;
+        ScaleTransform flipTransform;
+        RotateTransform rotateTransform;
+
+        if (bodyElement.RenderTransform is TransformGroup existingGroup &&
+            existingGroup.Children.Count >= 2 &&
+            existingGroup.Children[0] is ScaleTransform existingScale &&
+            existingGroup.Children[1] is RotateTransform existingRotate)
         {
-            nameBrush.Color = vehicleColor;
+            transformGroup = existingGroup;
+            flipTransform = existingScale;
+            rotateTransform = existingRotate;
         }
         else
         {
-            visual.NameLabel.Foreground = new SolidColorBrush(vehicleColor);
+            flipTransform = new ScaleTransform(1, 1);
+            rotateTransform = new RotateTransform();
+            transformGroup = new TransformGroup();
+            transformGroup.Children.Add(flipTransform);
+            transformGroup.Children.Add(rotateTransform);
+            bodyElement.RenderTransform = transformGroup;
+        }
+
+        bodyElement.RenderTransformOrigin = new Point(0.5, 0.5);
+        flipTransform.ScaleX = _areVehiclesFlipped ? -1 : 1;
+        flipTransform.ScaleY = 1;
+        rotateTransform.Angle = finalAngle;
+
+        visual.NameLabel.Text = vehicle.Name ?? string.Empty;
+        var nameFontSize = 9;
+        visual.NameLabel.FontSize = nameFontSize;
+        visual.NameLabel.FontWeight = FontWeights.Bold;
+        visual.NameLabel.Padding = new Thickness(4, 2, 4, 2);
+        if (visual.NameLabel.Foreground is SolidColorBrush nameBrush)
+        {
+            nameBrush.Color = pathColor;
+        }
+        else
+        {
+            visual.NameLabel.Foreground = new SolidColorBrush(pathColor);
         }
         ApplyVehicleLabelTransform(visual.NameLabel);
 
         visual.StateLabel.Text = vehicle.VehicleStateText;
-        visual.StateLabel.FontSize = 9 / effectiveZoom;
-        visual.StateLabel.Padding = new Thickness(4 / effectiveZoom, 1 / effectiveZoom, 4 / effectiveZoom, 1 / effectiveZoom);
+        var stateFontSize = 7.5;
+        visual.StateLabel.FontSize = stateFontSize;
+        visual.StateLabel.Padding = new Thickness(3, 1.5, 3, 1.5);
+        if (visual.StateLabel.Foreground is SolidColorBrush stateBrush)
+        {
+            stateBrush.Color = stateColor;
+        }
+        else
+        {
+            visual.StateLabel.Foreground = new SolidColorBrush(stateColor);
+        }
         ApplyVehicleLabelTransform(visual.StateLabel);
 
-        var bodyLeft = bodyCenter.X - vehicleWidth / 2;
-        var bodyTop = bodyCenter.Y - vehicleHeight / 2;
-        SetElementPosition(visual.Body, bodyLeft, bodyTop, animate);
+        var bodyLeft = bodyCenter.X - bodyWidth / 2;
+        var bodyTop = bodyCenter.Y - bodyHeight / 2;
+        SetElementPosition(bodyElement, bodyLeft, bodyTop, animate);
 
-        var labelOffsetX = 12 / effectiveZoom;
+        var labelOffsetX = bodyWidth / 2 + 4;
         var nameLeft = bodyCenter.X + labelOffsetX;
-        var nameTop = bodyCenter.Y - 10 / effectiveZoom;
+        var nameTop = bodyTop - 4;
         SetElementPosition(visual.NameLabel, nameLeft, nameTop, animate);
 
         var stateLeft = bodyCenter.X + labelOffsetX;
-        var stateTop = bodyCenter.Y + 5 / effectiveZoom;
+        var stateTop = nameTop + 12;
         SetElementPosition(visual.StateLabel, stateLeft, stateTop, animate);
+    }
+
+    private string BuildVehicleShapeSignature(Vehicle vehicle)
+    {
+        if (vehicle == null)
+        {
+            return "__null__";
+        }
+
+        var hash = new HashCode();
+        hash.Add(vehicle.VehicleType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+
+        if (vehicle.VehicleShape is { Count: > 0 })
+        {
+            foreach (var entry in vehicle.VehicleShape)
+            {
+                hash.Add(entry ?? string.Empty, StringComparer.Ordinal);
+            }
+            return $"shape:{hash.ToHashCode():X}";
+        }
+
+        if (vehicle.BodyShape is { Count: > 0 })
+        {
+            hash.Add("__body__", StringComparer.Ordinal);
+            foreach (var entry in vehicle.BodyShape)
+            {
+                hash.Add(entry ?? string.Empty, StringComparer.Ordinal);
+            }
+            return $"body:{hash.ToHashCode():X}";
+        }
+
+        return $"fallback:{hash.ToHashCode():X}";
+    }
+
+    private VehicleShapeData? TryCreateVehicleShapeData(Vehicle vehicle)
+    {
+        if (vehicle == null)
+        {
+            return null;
+        }
+
+        var preferred = CreateVehicleShapeDataFromPoints(ParseVehicleShapePoints(vehicle.VehicleShape));
+        if (preferred != null)
+        {
+            return preferred;
+        }
+
+        var bodyOnly = CreateVehicleShapeDataFromPoints(ParseVehicleShapePoints(vehicle.BodyShape));
+        if (bodyOnly != null)
+        {
+            return bodyOnly;
+        }
+
+        if (IsForkliftVehicle(vehicle))
+        {
+            return CreateFallbackForkliftShapeData();
+        }
+
+        return null;
+    }
+
+    private static List<Point> ParseVehicleShapePoints(IReadOnlyList<string>? rawPoints)
+    {
+        var points = new List<Point>();
+
+        if (rawPoints == null)
+        {
+            return points;
+        }
+
+        double? pendingX = null;
+
+        foreach (var raw in rawPoints)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            var matches = ShapeNumberRegex.Matches(raw);
+            foreach (Match match in matches)
+            {
+                if (!match.Success)
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                {
+                    continue;
+                }
+
+                if (pendingX == null)
+                {
+                    pendingX = value;
+                }
+                else
+                {
+                    points.Add(new Point(pendingX.Value, value));
+                    pendingX = null;
+                }
+            }
+        }
+
+        return points;
+    }
+
+    private static VehicleShapeData? CreateVehicleShapeDataFromPoints(List<Point> points)
+    {
+        if (points.Count < 3)
+        {
+            return null;
+        }
+
+        var filtered = new List<Point>(points.Count);
+        foreach (var point in points)
+        {
+            if (filtered.Count == 0 || !ArePointsClose(filtered[^1], point, 1e-6))
+            {
+                filtered.Add(point);
+            }
+        }
+
+        if (filtered.Count > 2 && ArePointsClose(filtered[0], filtered[^1], 1e-6))
+        {
+            filtered.RemoveAt(filtered.Count - 1);
+        }
+
+        if (filtered.Count < 3)
+        {
+            return null;
+        }
+
+        var minX = filtered.Min(p => p.X);
+        var maxX = filtered.Max(p => p.X);
+        var minY = filtered.Min(p => p.Y);
+        var maxY = filtered.Max(p => p.Y);
+
+        var width = maxX - minX;
+        var height = maxY - minY;
+
+        if (width <= double.Epsilon || height <= double.Epsilon)
+        {
+            return null;
+        }
+
+        var centerX = (minX + maxX) / 2.0;
+        var centerY = (minY + maxY) / 2.0;
+
+        var normalized = new List<Point>(filtered.Count);
+        foreach (var point in filtered)
+        {
+            normalized.Add(new Point(point.X - centerX, point.Y - centerY));
+        }
+
+        return new VehicleShapeData(normalized, width, height);
+    }
+
+    private static VehicleShapeData CreateFallbackForkliftShapeData()
+    {
+        var fallbackPoints = new List<Point>
+        {
+            new(-0.6, -0.95),
+            new(0.6, -0.95),
+            new(0.6, 0.05),
+            new(0.95, 0.05),
+            new(0.95, 0.25),
+            new(0.45, 0.25),
+            new(0.45, 0.85),
+            new(0.75, 0.85),
+            new(0.75, 1.15),
+            new(-0.75, 1.15),
+            new(-0.75, 0.85),
+            new(-0.45, 0.85),
+            new(-0.45, 0.25),
+            new(-0.95, 0.25),
+            new(-0.95, 0.05),
+            new(-0.6, 0.05)
+        };
+
+        var shapeData = CreateVehicleShapeDataFromPoints(fallbackPoints);
+        if (shapeData != null)
+        {
+            return shapeData;
+        }
+
+        var minX = fallbackPoints.Min(p => p.X);
+        var maxX = fallbackPoints.Max(p => p.X);
+        var minY = fallbackPoints.Min(p => p.Y);
+        var maxY = fallbackPoints.Max(p => p.Y);
+        var width = Math.Max(maxX - minX, 0.01);
+        var height = Math.Max(maxY - minY, 0.01);
+        var centerX = (minX + maxX) / 2.0;
+        var centerY = (minY + maxY) / 2.0;
+
+        var normalized = fallbackPoints
+            .Select(p => new Point(p.X - centerX, p.Y - centerY))
+            .ToList();
+
+        return new VehicleShapeData(normalized, width, height);
+    }
+
+    private static bool IsForkliftVehicle(Vehicle vehicle)
+    {
+        if (vehicle == null)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(vehicle.VehicleType) &&
+            vehicle.VehicleType.Contains("fork", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(vehicle.Name) &&
+               vehicle.Name.Contains("지게", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private Size UpdateVehicleShapePath(Path path, VehicleShapeData shapeData, double targetWidth, double targetHeight)
+    {
+        var originalWidth = Math.Max(shapeData.Width, double.Epsilon);
+        var originalHeight = Math.Max(shapeData.Height, double.Epsilon);
+
+        var scaleX = targetWidth / originalWidth;
+        var scaleY = targetHeight / originalHeight;
+        var scale = Math.Max(Math.Min(scaleX, scaleY), 0.01);
+
+        var actualWidth = originalWidth * scale;
+        var actualHeight = originalHeight * scale;
+        var halfWidth = actualWidth / 2.0;
+        var halfHeight = actualHeight / 2.0;
+
+        var geometry = new StreamGeometry
+        {
+            FillRule = FillRule.EvenOdd
+        };
+
+        using (var context = geometry.Open())
+        {
+            var isFirst = true;
+            foreach (var point in shapeData.NormalizedPoints)
+            {
+                var x = point.X * scale + halfWidth;
+                var y = point.Y * scale + halfHeight;
+                if (isFirst)
+                {
+                    context.BeginFigure(new Point(x, y), true, true);
+                    isFirst = false;
+                }
+                else
+                {
+                    context.LineTo(new Point(x, y), true, false);
+                }
+            }
+        }
+
+        geometry.Freeze();
+        path.Data = geometry;
+        path.Width = actualWidth;
+        path.Height = actualHeight;
+        path.StrokeLineJoin = PenLineJoin.Round;
+        path.StrokeEndLineCap = PenLineCap.Round;
+        path.StrokeStartLineCap = PenLineCap.Round;
+
+        return new Size(actualWidth, actualHeight);
     }
 
     private void SetElementPosition(FrameworkElement element, double targetLeft, double targetTop, bool animate)
@@ -1161,7 +1588,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
     private void RemoveVehicleVisual(VehicleVisual visual)
     {
-        RemoveFrameworkElement(visual.Body);
+        RemoveFrameworkElement(visual.BodyElement);
         RemoveFrameworkElement(visual.NameLabel);
         RemoveFrameworkElement(visual.StateLabel);
     }
@@ -1192,15 +1619,14 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         return string.IsNullOrWhiteSpace(vehicleName) ? "__DEFAULT_VEHICLE__" : vehicleName;
     }
 
-    private SolidColorBrush GetVehiclePathBrush(string vehicleKey, Vehicle vehicle)
+    private SolidColorBrush GetVehiclePathBrush(string vehicleKey)
     {
         if (_vehiclePathBrushes.TryGetValue(vehicleKey, out var cached))
         {
             return cached;
         }
 
-        var colorIndex = _vehiclePathBrushes.Count;
-        var color = PickVehiclePathColor(colorIndex, vehicle);
+        var color = AssignVehiclePathColor(vehicleKey);
         var brush = new SolidColorBrush(color);
         if (brush.CanFreeze)
         {
@@ -1211,22 +1637,42 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         return brush;
     }
 
-    private Color PickVehiclePathColor(int colorIndex, Vehicle vehicle)
+    private Color AssignVehiclePathColor(string vehicleKey)
     {
-        var paletteColor = _vehiclePathPalette[colorIndex % _vehiclePathPalette.Length];
-
-        // Guarantee the first three vehicles are vivid red, yellow, and green.
-        if (colorIndex < 3)
+        try
         {
-            return paletteColor;
+            var usedColors = _vehiclePathBrushes.Values
+                .Select(b => b.Color)
+                .ToHashSet();
+
+            foreach (var paletteColor in _vehiclePathPalette)
+            {
+                if (!usedColors.Contains(paletteColor))
+                {
+                    return paletteColor;
+                }
+            }
+
+            var hash = Math.Abs(HashCode.Combine(vehicleKey));
+            byte BaseComponent(int offset) => (byte)(64 + ((hash >> offset) & 0xFF) % 160);
+            var fallback = Color.FromRgb(BaseComponent(0), BaseComponent(8), BaseComponent(16));
+
+            var attempt = 0;
+            while (usedColors.Contains(fallback) && attempt < 10)
+            {
+                fallback = Color.FromRgb(
+                    (byte)((fallback.R + 85) % 256),
+                    (byte)((fallback.G + 170) % 256),
+                    (byte)((fallback.B + 43) % 256));
+                attempt++;
+            }
+
+            return fallback;
         }
-
-        var (stateColor, _, _) = GetVehicleColors(vehicle);
-
-        return Color.FromRgb(
-            (byte)((paletteColor.R + stateColor.R) / 2),
-            (byte)((paletteColor.G + stateColor.G) / 2),
-            (byte)((paletteColor.B + stateColor.B) / 2));
+        catch
+        {
+            return _vehiclePathPalette[0];
+        }
     }
 
     private double? ComputeVehicleAngle(Vehicle vehicle, Func<double, double, Point> transform, Dictionary<string, MapNode> nodeLookup)
@@ -1321,6 +1767,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         {
             _originalRotationAngle = _rotationAngle;
             _originalFlipState = _isFlippedHorizontally;
+            _originalVehicleAngleOffset = _vehicleAngleOffset;
+            _originalVehicleFlipState = _areVehiclesFlipped;
             SettingsPanel.Visibility = Visibility.Visible;
             SettingsToggleButton.Content = "✕";
             SettingsToggleButton.ToolTip = "Close Settings";
@@ -1347,6 +1795,12 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         RotationSlider.Value = 0;
     }
 
+    private void ResetVehicleAngle_Click(object sender, RoutedEventArgs e)
+    {
+        VehicleAngleOffset = 0;
+        VehicleAngleSlider.Value = 0;
+    }
+
     private async void CompleteSettings_Click(object sender, RoutedEventArgs e)
     {
         // Save the current settings
@@ -1355,6 +1809,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         // Treat the saved state as the new baseline for cancellation scenarios
         _originalRotationAngle = _rotationAngle;
         _originalFlipState = _isFlippedHorizontally;
+        _originalVehicleAngleOffset = _vehicleAngleOffset;
+        _originalVehicleFlipState = _areVehiclesFlipped;
 
         // Close the settings panel
         _isSettingsPanelOpen = false;
@@ -1384,6 +1840,10 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         RotationSlider.Value = _originalRotationAngle;
         IsFlippedHorizontally = _originalFlipState;
         FlipCheckBox.IsChecked = _originalFlipState;
+        VehicleAngleOffset = _originalVehicleAngleOffset;
+        VehicleAngleSlider.Value = _originalVehicleAngleOffset;
+        AreVehiclesFlipped = _originalVehicleFlipState;
+        VehicleFlipCheckBox.IsChecked = _originalVehicleFlipState;
         
         // Close the settings panel
         _isSettingsPanelOpen = false;
@@ -1412,6 +1872,14 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         if (sender is CheckBox checkBox)
         {
             IsFlippedHorizontally = checkBox.IsChecked == true;
+        }
+    }
+
+    private void VehicleFlip_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox)
+        {
+            AreVehiclesFlipped = checkBox.IsChecked == true;
         }
     }
 
@@ -1582,6 +2050,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             _isFlippedHorizontally = settings.IsFlippedHorizontally;
             _nodeSize = settings.NodeSize;
             _vehicleSize = settings.VehicleSize;
+            _vehicleAngleOffset = settings.VehicleAngleOffset;
+            _areVehiclesFlipped = settings.AreVehiclesFlipped;
 
             OnPropertyChanged(nameof(OffsetX));
             OnPropertyChanged(nameof(OffsetY));
@@ -1590,6 +2060,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsFlippedHorizontally));
             OnPropertyChanged(nameof(NodeSize));
             OnPropertyChanged(nameof(VehicleSize));
+            OnPropertyChanged(nameof(VehicleAngleOffset));
+            OnPropertyChanged(nameof(AreVehiclesFlipped));
 
             UpdateViewTransform();
             ScheduleRender();
@@ -1612,7 +2084,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 ZoomLevel = _zoomLevel,
                 IsFlippedHorizontally = _isFlippedHorizontally,
                 NodeSize = _nodeSize,
-                VehicleSize = _vehicleSize
+                VehicleSize = _vehicleSize,
+                VehicleAngleOffset = _vehicleAngleOffset,
+                AreVehiclesFlipped = _areVehiclesFlipped
             };
             
             await _settingsService.SaveSettingsAsync(settings);
