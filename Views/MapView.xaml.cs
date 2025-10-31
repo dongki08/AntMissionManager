@@ -28,6 +28,15 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private double _nodeSize = 5;
     private double _vehicleSize = 16;
 
+    private struct MapTransformContext
+    {
+        public double Scale;
+        public double CenterOffsetX;
+        public double CenterOffsetY;
+        public double MapCenterXScaled;
+        public double MapCenterYScaled;
+    }
+
     // Settings and optimization
     private readonly MapSettingsService _settingsService = new();
     private DispatcherTimer? _renderTimer;
@@ -551,11 +560,188 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
     private void MapCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
     {
-        // Zoom in/out with mouse wheel
+        // Zoom around the cursor position
         var delta = e.Delta > 0 ? ZOOM_FACTOR : -ZOOM_FACTOR;
-        ZoomLevel += delta;
+        var targetZoom = _zoomLevel + delta;
+        var anchor = e.GetPosition(MapCanvas);
+        ApplyZoom(targetZoom, anchor);
         e.Handled = true;
     }
+
+    #region Zoom Helpers
+
+    private void ApplyZoom(double targetZoom, Point anchor)
+    {
+        var clampedZoom = Math.Clamp(targetZoom, MIN_ZOOM, MAX_ZOOM);
+        if (Math.Abs(clampedZoom - _zoomLevel) <= 0.001)
+        {
+            return;
+        }
+
+        Point? anchorMapPoint = null;
+        if (TryGetTransformContext(_zoomLevel, out var beforeContext))
+        {
+            anchorMapPoint = ScreenToMap(anchor, beforeContext);
+        }
+
+        _zoomLevel = clampedZoom;
+        OnPropertyChanged(nameof(ZoomLevel));
+
+        var previousOffsetX = _offsetX;
+        var previousOffsetY = _offsetY;
+
+        if (anchorMapPoint.HasValue && TryGetTransformContext(_zoomLevel, out var afterContext))
+        {
+            var projected = MapToScreen(anchorMapPoint.Value, afterContext);
+            _offsetX += anchor.X - projected.X;
+            _offsetY += anchor.Y - projected.Y;
+        }
+
+        if (Math.Abs(_offsetX - previousOffsetX) > 0.001)
+        {
+            OnPropertyChanged(nameof(OffsetX));
+        }
+
+        if (Math.Abs(_offsetY - previousOffsetY) > 0.001)
+        {
+            OnPropertyChanged(nameof(OffsetY));
+        }
+
+        ScheduleRender();
+    }
+
+    private bool TryGetTransformContext(double zoomLevel, out MapTransformContext context)
+    {
+        context = default;
+
+        var mapData = _cachedMapData ?? MapData;
+        if (mapData == null || !mapData.Any())
+        {
+            return false;
+        }
+
+        var allNodes = mapData.SelectMany(m => m.Layers.SelectMany(l => l.Nodes)).ToList();
+        if (!allNodes.Any())
+        {
+            return false;
+        }
+
+        var minX = allNodes.Min(n => n.X);
+        var maxX = allNodes.Max(n => n.X);
+        var minY = allNodes.Min(n => n.Y);
+        var maxY = allNodes.Max(n => n.Y);
+
+        var mapWidth = maxX - minX;
+        var mapHeight = maxY - minY;
+
+        if (mapWidth == 0 || mapHeight == 0)
+        {
+            return false;
+        }
+
+        var canvasWidth = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
+        var canvasHeight = MapCanvas.ActualHeight > 0 ? MapCanvas.ActualHeight : 600;
+
+        const double padding = 50;
+        var scaleX = (canvasWidth - padding * 2) / mapWidth;
+        var scaleY = (canvasHeight - padding * 2) / mapHeight;
+        var baseScale = Math.Min(scaleX, scaleY);
+        var scale = baseScale * zoomLevel;
+
+        if (scale <= 0 || double.IsNaN(scale) || double.IsInfinity(scale))
+        {
+            return false;
+        }
+
+        var mapCenterX = (minX + maxX) / 2;
+        var mapCenterY = (minY + maxY) / 2;
+
+        var mapCenterXScaled = mapCenterX * scale;
+        var mapCenterYScaled = mapCenterY * scale;
+
+        var centerOffsetX = canvasWidth / 2 - mapCenterXScaled;
+        var centerOffsetY = canvasHeight / 2 - mapCenterYScaled;
+
+        context = new MapTransformContext
+        {
+            Scale = scale,
+            CenterOffsetX = centerOffsetX,
+            CenterOffsetY = centerOffsetY,
+            MapCenterXScaled = mapCenterXScaled,
+            MapCenterYScaled = mapCenterYScaled
+        };
+
+        return true;
+    }
+
+    private Point? ScreenToMap(Point screenPoint, MapTransformContext context)
+    {
+        if (context.Scale <= 0)
+        {
+            return null;
+        }
+
+        var scaledX = screenPoint.X - _offsetX - context.CenterOffsetX;
+        var scaledY = screenPoint.Y - _offsetY - context.CenterOffsetY;
+
+        if (Math.Abs(_rotationAngle) > 0.001)
+        {
+            var radians = -_rotationAngle * Math.PI / 180.0;
+            var cos = Math.Cos(radians);
+            var sin = Math.Sin(radians);
+            var relativeX = scaledX - context.MapCenterXScaled;
+            var relativeY = scaledY - context.MapCenterYScaled;
+            var rotatedX = relativeX * cos - relativeY * sin;
+            var rotatedY = relativeX * sin + relativeY * cos;
+            scaledX = rotatedX + context.MapCenterXScaled;
+            scaledY = rotatedY + context.MapCenterYScaled;
+        }
+
+        if (_isFlippedHorizontally)
+        {
+            scaledX = 2 * context.MapCenterXScaled - scaledX;
+        }
+
+        var worldX = scaledX / context.Scale;
+        var worldY = scaledY / context.Scale;
+
+        if (double.IsNaN(worldX) || double.IsNaN(worldY) || double.IsInfinity(worldX) || double.IsInfinity(worldY))
+        {
+            return null;
+        }
+
+        return new Point(worldX, worldY);
+    }
+
+    private Point MapToScreen(Point mapPoint, MapTransformContext context)
+    {
+        var scaledX = mapPoint.X * context.Scale;
+        var scaledY = mapPoint.Y * context.Scale;
+
+        if (_isFlippedHorizontally)
+        {
+            scaledX = 2 * context.MapCenterXScaled - scaledX;
+        }
+
+        if (Math.Abs(_rotationAngle) > 0.001)
+        {
+            var radians = _rotationAngle * Math.PI / 180.0;
+            var cos = Math.Cos(radians);
+            var sin = Math.Sin(radians);
+            var relativeX = scaledX - context.MapCenterXScaled;
+            var relativeY = scaledY - context.MapCenterYScaled;
+            var rotatedX = relativeX * cos - relativeY * sin;
+            var rotatedY = relativeX * sin + relativeY * cos;
+            scaledX = rotatedX + context.MapCenterXScaled;
+            scaledY = rotatedY + context.MapCenterYScaled;
+        }
+
+        return new Point(
+            scaledX + context.CenterOffsetX + _offsetX,
+            scaledY + context.CenterOffsetY + _offsetY);
+    }
+
+    #endregion
 
     private void MapCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
