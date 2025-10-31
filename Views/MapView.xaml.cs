@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using AntMissionManager.Models;
@@ -29,25 +30,27 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private double _nodeSize = 5;
     private double _vehicleSize = 16;
     private DispatcherTimer? _vehicleUpdateTimer;
-    private const string VehicleElementTag = "__VehicleLayer";
+    private const string VehicleVisualTag = "__VehicleVisual";
+    private const string VehiclePathElementTag = "__VehiclePath";
     private const string LinkElementTag = "__LinkLayer";
     private const string NodeElementTag = "__NodeMarker";
     private const string NodeGlowElementTag = "__NodeGlow";
     private const double BaseLinkStrokeThickness = 2.5;
     private const double BaseNodeStrokeThickness = 1.6;
+    private readonly Dictionary<string, VehicleVisual> _vehicleVisuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, SolidColorBrush> _vehiclePathBrushes = new();
     private readonly Color[] _vehiclePathPalette =
     {
-        Color.FromRgb(255, 99, 71),   // Tomato
-        Color.FromRgb(65, 105, 225),  // Royal Blue
-        Color.FromRgb(60, 179, 113),  // Medium Sea Green
-        Color.FromRgb(238, 130, 238), // Violet
-        Color.FromRgb(255, 215, 0),   // Gold
-        Color.FromRgb(70, 130, 180),  // Steel Blue
-        Color.FromRgb(255, 140, 0),   // Dark Orange
-        Color.FromRgb(46, 139, 87),   // Sea Green
+        Color.FromRgb(255, 45, 85),   // Primary Red
+        Color.FromRgb(255, 214, 10),  // Bright Yellow
+        Color.FromRgb(52, 199, 89),   // Rich Green
+        Color.FromRgb(30, 144, 255),  // Dodger Blue
         Color.FromRgb(186, 85, 211),  // Medium Orchid
-        Color.FromRgb(30, 144, 255)   // Dodger Blue
+        Color.FromRgb(255, 140, 0),   // Dark Orange
+        Color.FromRgb(65, 105, 225),  // Royal Blue
+        Color.FromRgb(255, 99, 71),   // Tomato
+        Color.FromRgb(60, 179, 113),  // Medium Sea Green
+        Color.FromRgb(70, 130, 180)   // Steel Blue
     };
     private bool _skipStaticRender = false;
 
@@ -58,6 +61,21 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         public double CenterOffsetY;
         public double MapCenterXScaled;
         public double MapCenterYScaled;
+    }
+
+    private sealed class PathSegmentRenderInfo
+    {
+        public Point P1 { get; init; }
+        public Point P2 { get; init; }
+        public SolidColorBrush Brush { get; init; } = null!;
+        public double BaseThickness { get; init; }
+    }
+
+    private sealed class VehicleVisual
+    {
+        public Rectangle Body { get; init; } = null!;
+        public TextBlock NameLabel { get; init; } = null!;
+        public TextBlock StateLabel { get; init; } = null!;
     }
 
     // Settings and optimization
@@ -244,6 +262,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         _translateTransform.Y = _offsetY;
 
         UpdateStaticElementAppearance();
+        RefreshVehicleLabelTransforms();
     }
 
     public ICommand ResetViewCommand { get; }
@@ -309,7 +328,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     {
         Services.MapLogger.Log($"MapView Loaded - Canvas Size: {MapCanvas.ActualWidth}x{MapCanvas.ActualHeight}");
         _vehicleUpdateTimer?.Start();
-        ResetView();
+        UpdateViewTransform();
+        ScheduleRender();
     }
 
     private void MapView_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -380,6 +400,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             _drawingSurface.Children.Clear();
             _cachedElements.Clear();
             _lastStyleZoom = double.NaN;
+            _vehicleVisuals.Clear();
         }
 
         var canvasWidth = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
@@ -733,7 +754,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     {
         for (int i = _drawingSurface.Children.Count - 1; i >= 0; i--)
         {
-            if (_drawingSurface.Children[i] is FrameworkElement element && Equals(element.Tag, VehicleElementTag))
+            if (_drawingSurface.Children[i] is Line element && Equals(element.Tag, VehiclePathElementTag))
             {
                 _drawingSurface.Children.RemoveAt(i);
             }
@@ -748,6 +769,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         }
 
         var activeKeys = new HashSet<string>();
+        var segmentGroups = new Dictionary<string, List<PathSegmentRenderInfo>>(StringComparer.Ordinal);
 
         foreach (var vehicle in Vehicles)
         {
@@ -756,16 +778,19 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 continue;
             }
 
-            var key = NormalizeVehicleKey(vehicle.Name);
-            activeKeys.Add(key);
-            var pathBrush = GetVehiclePathBrush(key);
+            var vehicleKey = NormalizeVehicleKey(vehicle.Name);
+            activeKeys.Add(vehicleKey);
+            var pathBrush = GetVehiclePathBrush(vehicleKey, vehicle);
             var effectiveZoom = Math.Max(_zoomLevel, MIN_ZOOM);
-            var pathThickness = Math.Clamp(4.0 / Math.Pow(effectiveZoom, 0.8), 1.5, 6.0);
+            var baseThickness = Math.Clamp(4.0 / Math.Pow(effectiveZoom, 0.8), 1.5, 6.0);
 
             for (int i = 0; i < vehicle.Path.Count - 1; i++)
             {
-                if (!nodeLookup.TryGetValue(vehicle.Path[i], out var fromNode) ||
-                    !nodeLookup.TryGetValue(vehicle.Path[i + 1], out var toNode))
+                var fromId = vehicle.Path[i];
+                var toId = vehicle.Path[i + 1];
+
+                if (!nodeLookup.TryGetValue(fromId, out var fromNode) ||
+                    !nodeLookup.TryGetValue(toId, out var toNode))
                 {
                     continue;
                 }
@@ -773,19 +798,36 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 var p1 = transform(fromNode.X, fromNode.Y);
                 var p2 = transform(toNode.X, toNode.Y);
 
-                var pathLine = new Line
+                if (ArePointsClose(p1, p2))
                 {
-                    X1 = p1.X,
-                    Y1 = p1.Y,
-                    X2 = p2.X,
-                    Y2 = p2.Y,
-                    Stroke = pathBrush,
-                    StrokeThickness = pathThickness,
-                    Tag = VehicleElementTag
-                };
+                    continue;
+                }
 
-                _drawingSurface.Children.Add(pathLine);
+                var segmentKey = BuildSegmentKey(fromId, toId);
+                if (string.IsNullOrEmpty(segmentKey))
+                {
+                    continue;
+                }
+
+                if (!segmentGroups.TryGetValue(segmentKey, out var list))
+                {
+                    list = new List<PathSegmentRenderInfo>();
+                    segmentGroups[segmentKey] = list;
+                }
+
+                list.Add(new PathSegmentRenderInfo
+                {
+                    P1 = p1,
+                    P2 = p2,
+                    Brush = pathBrush,
+                    BaseThickness = baseThickness
+                });
             }
+        }
+
+        foreach (var group in segmentGroups.Values)
+        {
+            DrawSegmentGroup(group);
         }
 
         if (_vehiclePathBrushes.Count > 0)
@@ -801,25 +843,98 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         }
     }
 
+    private static string BuildSegmentKey(string fromNodeName, string toNodeName)
+    {
+        if (string.IsNullOrWhiteSpace(fromNodeName) || string.IsNullOrWhiteSpace(toNodeName))
+        {
+            return string.Empty;
+        }
+
+        return string.CompareOrdinal(fromNodeName, toNodeName) <= 0
+            ? $"{fromNodeName}|{toNodeName}"
+            : $"{toNodeName}|{fromNodeName}";
+    }
+
+    private static bool ArePointsClose(Point a, Point b, double tolerance = 0.01)
+    {
+        var dx = a.X - b.X;
+        var dy = a.Y - b.Y;
+        return dx * dx + dy * dy <= tolerance * tolerance;
+    }
+
+    private void DrawSegmentGroup(List<PathSegmentRenderInfo> group)
+    {
+        if (group.Count == 0)
+        {
+            return;
+        }
+
+        var reference = group[0];
+        var dx = reference.P2.X - reference.P1.X;
+        var dy = reference.P2.Y - reference.P1.Y;
+        var baseVector = new Vector(dx, dy);
+
+        if (baseVector.LengthSquared < 0.001)
+        {
+            return;
+        }
+
+        baseVector.Normalize();
+        var normal = new Vector(-baseVector.Y, baseVector.X);
+
+        if (normal.LengthSquared < 0.0001)
+        {
+            return;
+        }
+
+        var count = group.Count;
+        var baseThickness = group.Max(info => info.BaseThickness);
+        var perLineThickness = count > 1 ? Math.Max(baseThickness / count, 1.0) : baseThickness;
+
+        for (var index = 0; index < count; index++)
+        {
+            var info = group[index];
+            var offsetFactor = index - (count - 1) / 2.0;
+            var offsetVector = normal * (offsetFactor * perLineThickness);
+
+            var line = new Line
+            {
+                X1 = info.P1.X + offsetVector.X,
+                Y1 = info.P1.Y + offsetVector.Y,
+                X2 = info.P2.X + offsetVector.X,
+                Y2 = info.P2.Y + offsetVector.Y,
+                Stroke = info.Brush,
+                StrokeThickness = perLineThickness,
+                Tag = VehiclePathElementTag
+            };
+
+            _drawingSurface.Children.Add(line);
+        }
+    }
+
     private void RenderVehicles(Func<double, double, Point> transform, Dictionary<string, MapNode> nodeLookup)
     {
+        var shouldAnimate = _skipStaticRender;
+        var activeKeys = new HashSet<string>(StringComparer.Ordinal);
+
         if (Vehicles == null || Vehicles.Count == 0)
         {
+            RemoveInactiveVehicleVisuals(activeKeys);
             return;
         }
 
         foreach (var vehicle in Vehicles)
         {
-            if (vehicle.VehicleState == "extracted")
+            if (vehicle.VehicleState == "extracted" || vehicle.Coordinates == null || vehicle.Coordinates.Count < 2)
             {
                 continue;
             }
 
-            if (vehicle.Coordinates == null || vehicle.Coordinates.Count < 2)
-            {
-                continue;
-            }
+            var vehicleKey = NormalizeVehicleKey(vehicle.Name);
+            activeKeys.Add(vehicleKey);
 
+            var pathBrush = GetVehiclePathBrush(vehicleKey, vehicle);
+            var pathColor = pathBrush.Color;
             var pos = transform(vehicle.Coordinates[0], vehicle.Coordinates[1]);
             var (vehicleColor, _, _) = GetVehicleColors(vehicle);
             var effectiveZoom = Math.Max(_zoomLevel, MIN_ZOOM);
@@ -828,55 +943,247 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             var vehicleHeight = baseVehicleSize * 1.2 / effectiveZoom;
             var strokeWidth = 1.25 / effectiveZoom;
 
-            var vehicleRect = new Rectangle
+            var isNewVisual = !_vehicleVisuals.TryGetValue(vehicleKey, out var visual);
+            if (isNewVisual)
             {
-                Width = vehicleWidth,
-                Height = vehicleHeight,
-                Fill = new SolidColorBrush(vehicleColor),
-                Stroke = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
-                StrokeThickness = strokeWidth,
-                Tag = VehicleElementTag
-            };
-
-            var heading = ComputeVehicleAngle(vehicle, transform, nodeLookup);
-            if (heading.HasValue)
-            {
-                vehicleRect.RenderTransformOrigin = new Point(0.5, 0.5);
-                vehicleRect.RenderTransform = new RotateTransform(NormalizeAngle(heading.Value - 90));
+                visual = CreateVehicleVisual(vehicleColor, strokeWidth, pathColor);
+                _vehicleVisuals[vehicleKey] = visual;
+                _drawingSurface.Children.Add(visual.Body);
+                _drawingSurface.Children.Add(visual.NameLabel);
+                _drawingSurface.Children.Add(visual.StateLabel);
             }
 
-            Canvas.SetLeft(vehicleRect, pos.X - vehicleWidth / 2);
-            Canvas.SetTop(vehicleRect, pos.Y - vehicleHeight / 2);
-            _drawingSurface.Children.Add(vehicleRect);
+            UpdateVehicleVisual(vehicle, visual!, pos, transform, nodeLookup, vehicleColor, pathColor, vehicleWidth, vehicleHeight, strokeWidth, effectiveZoom, shouldAnimate && !isNewVisual);
+        }
 
-            var vehicleLabel = new TextBlock
+        RemoveInactiveVehicleVisuals(activeKeys);
+    }
+
+    private VehicleVisual CreateVehicleVisual(Color vehicleColor, double strokeWidth, Color pathColor)
+    {
+        var body = new Rectangle
+        {
+            Fill = new SolidColorBrush(vehicleColor),
+            Stroke = new SolidColorBrush(pathColor),
+            StrokeThickness = strokeWidth,
+            Tag = VehicleVisualTag
+        };
+        Canvas.SetZIndex(body, 900);
+
+        var nameLabel = new TextBlock
+        {
+            Foreground = new SolidColorBrush(vehicleColor),
+            FontWeight = FontWeights.Bold,
+            Background = new SolidColorBrush(Color.FromArgb(230, 0, 0, 0)),
+            Tag = VehicleVisualTag
+        };
+        Canvas.SetZIndex(nameLabel, 901);
+
+        var stateLabel = new TextBlock
+        {
+            Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
+            Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
+            Tag = VehicleVisualTag
+        };
+        Canvas.SetZIndex(stateLabel, 901);
+
+        return new VehicleVisual
+        {
+            Body = body,
+            NameLabel = nameLabel,
+            StateLabel = stateLabel
+        };
+    }
+
+    private void UpdateVehicleVisual(
+        Vehicle vehicle,
+        VehicleVisual visual,
+        Point bodyCenter,
+        Func<double, double, Point> transform,
+        Dictionary<string, MapNode> nodeLookup,
+        Color vehicleColor,
+        Color pathColor,
+        double vehicleWidth,
+        double vehicleHeight,
+        double strokeWidth,
+        double effectiveZoom,
+        bool animate)
+    {
+        visual.Body.Width = vehicleWidth;
+        visual.Body.Height = vehicleHeight;
+        visual.Body.StrokeThickness = strokeWidth;
+
+        if (visual.Body.Fill is SolidColorBrush bodyFill)
+        {
+            bodyFill.Color = vehicleColor;
+        }
+        else
+        {
+            visual.Body.Fill = new SolidColorBrush(vehicleColor);
+        }
+
+        if (visual.Body.Stroke is SolidColorBrush strokeBrush)
+        {
+            strokeBrush.Color = pathColor;
+        }
+        else
+        {
+            visual.Body.Stroke = new SolidColorBrush(pathColor);
+        }
+
+        var heading = ComputeVehicleAngle(vehicle, transform, nodeLookup);
+        if (visual.Body.RenderTransform is not RotateTransform rotateTransform)
+        {
+            rotateTransform = new RotateTransform();
+            visual.Body.RenderTransform = rotateTransform;
+            visual.Body.RenderTransformOrigin = new Point(0.5, 0.5);
+        }
+        rotateTransform.Angle = heading.HasValue ? NormalizeAngle(heading.Value - 90) : 0;
+
+        visual.NameLabel.Text = vehicle.Name ?? string.Empty;
+        visual.NameLabel.FontSize = 12 / effectiveZoom;
+        visual.NameLabel.FontWeight = FontWeights.Bold;
+        visual.NameLabel.Padding = new Thickness(6 / effectiveZoom, 3 / effectiveZoom, 6 / effectiveZoom, 3 / effectiveZoom);
+        if (visual.NameLabel.Foreground is SolidColorBrush nameBrush)
+        {
+            nameBrush.Color = vehicleColor;
+        }
+        else
+        {
+            visual.NameLabel.Foreground = new SolidColorBrush(vehicleColor);
+        }
+        ApplyVehicleLabelTransform(visual.NameLabel);
+
+        visual.StateLabel.Text = vehicle.VehicleStateText;
+        visual.StateLabel.FontSize = 9 / effectiveZoom;
+        visual.StateLabel.Padding = new Thickness(4 / effectiveZoom, 1 / effectiveZoom, 4 / effectiveZoom, 1 / effectiveZoom);
+        ApplyVehicleLabelTransform(visual.StateLabel);
+
+        var bodyLeft = bodyCenter.X - vehicleWidth / 2;
+        var bodyTop = bodyCenter.Y - vehicleHeight / 2;
+        SetElementPosition(visual.Body, bodyLeft, bodyTop, animate);
+
+        var labelOffsetX = 12 / effectiveZoom;
+        var nameLeft = bodyCenter.X + labelOffsetX;
+        var nameTop = bodyCenter.Y - 10 / effectiveZoom;
+        SetElementPosition(visual.NameLabel, nameLeft, nameTop, animate);
+
+        var stateLeft = bodyCenter.X + labelOffsetX;
+        var stateTop = bodyCenter.Y + 5 / effectiveZoom;
+        SetElementPosition(visual.StateLabel, stateLeft, stateTop, animate);
+    }
+
+    private void SetElementPosition(FrameworkElement element, double targetLeft, double targetTop, bool animate)
+    {
+        if (double.IsNaN(Canvas.GetLeft(element)))
+        {
+            Canvas.SetLeft(element, targetLeft);
+        }
+
+        if (double.IsNaN(Canvas.GetTop(element)))
+        {
+            Canvas.SetTop(element, targetTop);
+        }
+
+        if (!animate)
+        {
+            element.BeginAnimation(Canvas.LeftProperty, null);
+            element.BeginAnimation(Canvas.TopProperty, null);
+            Canvas.SetLeft(element, targetLeft);
+            Canvas.SetTop(element, targetTop);
+            return;
+        }
+
+        const double minimumDelta = 0.25;
+        var currentLeft = Canvas.GetLeft(element);
+        var currentTop = Canvas.GetTop(element);
+
+        var requiresLeftAnimation = Math.Abs(currentLeft - targetLeft) > minimumDelta;
+        var requiresTopAnimation = Math.Abs(currentTop - targetTop) > minimumDelta;
+
+        var duration = TimeSpan.FromSeconds(1);
+
+        if (requiresLeftAnimation)
+        {
+            var leftAnimation = new DoubleAnimation
             {
-                Text = $"{vehicle.Name}",
-                Foreground = new SolidColorBrush(vehicleColor),
-                FontSize = 12 / effectiveZoom,
-                FontWeight = FontWeights.Bold,
-                Background = new SolidColorBrush(Color.FromArgb(230, 0, 0, 0)),
-                Padding = new Thickness(6 / effectiveZoom, 3 / effectiveZoom, 6 / effectiveZoom, 3 / effectiveZoom),
-                Tag = VehicleElementTag
+                From = currentLeft,
+                To = targetLeft,
+                Duration = duration,
+                FillBehavior = FillBehavior.HoldEnd
             };
+            element.BeginAnimation(Canvas.LeftProperty, leftAnimation, HandoffBehavior.SnapshotAndReplace);
+        }
+        else
+        {
+            element.BeginAnimation(Canvas.LeftProperty, null);
+            Canvas.SetLeft(element, targetLeft);
+        }
 
-            Canvas.SetLeft(vehicleLabel, pos.X + 12 / effectiveZoom);
-            Canvas.SetTop(vehicleLabel, pos.Y - 10 / effectiveZoom);
-            _drawingSurface.Children.Add(vehicleLabel);
-
-            var stateLabel = new TextBlock
+        if (requiresTopAnimation)
+        {
+            var topAnimation = new DoubleAnimation
             {
-                Text = vehicle.VehicleStateText,
-                Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
-                FontSize = 9 / effectiveZoom,
-                Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
-                Padding = new Thickness(4 / effectiveZoom, 1 / effectiveZoom, 4 / effectiveZoom, 1 / effectiveZoom),
-                Tag = VehicleElementTag
+                From = currentTop,
+                To = targetTop,
+                Duration = duration,
+                FillBehavior = FillBehavior.HoldEnd
             };
+            element.BeginAnimation(Canvas.TopProperty, topAnimation, HandoffBehavior.SnapshotAndReplace);
+        }
+        else
+        {
+            element.BeginAnimation(Canvas.TopProperty, null);
+            Canvas.SetTop(element, targetTop);
+        }
+    }
 
-            Canvas.SetLeft(stateLabel, pos.X + 12 / effectiveZoom);
-            Canvas.SetTop(stateLabel, pos.Y + 5 / effectiveZoom);
-            _drawingSurface.Children.Add(stateLabel);
+    private void RemoveInactiveVehicleVisuals(HashSet<string> activeKeys)
+    {
+        if (_vehicleVisuals.Count == 0)
+        {
+            return;
+        }
+
+        var staleKeys = _vehicleVisuals.Keys
+            .Where(key => !activeKeys.Contains(key))
+            .ToList();
+
+        foreach (var key in staleKeys)
+        {
+            if (_vehicleVisuals.TryGetValue(key, out var visual))
+            {
+                RemoveVehicleVisual(visual);
+                _vehicleVisuals.Remove(key);
+            }
+        }
+    }
+
+    private void RemoveVehicleVisual(VehicleVisual visual)
+    {
+        RemoveFrameworkElement(visual.Body);
+        RemoveFrameworkElement(visual.NameLabel);
+        RemoveFrameworkElement(visual.StateLabel);
+    }
+
+    private void RemoveFrameworkElement(FrameworkElement element)
+    {
+        element.BeginAnimation(Canvas.LeftProperty, null);
+        element.BeginAnimation(Canvas.TopProperty, null);
+        _drawingSurface.Children.Remove(element);
+    }
+
+    private void RefreshVehicleLabelTransforms()
+    {
+        if (_vehicleVisuals.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var visual in _vehicleVisuals.Values)
+        {
+            ApplyVehicleLabelTransform(visual.NameLabel);
+            ApplyVehicleLabelTransform(visual.StateLabel);
         }
     }
 
@@ -885,14 +1192,15 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         return string.IsNullOrWhiteSpace(vehicleName) ? "__DEFAULT_VEHICLE__" : vehicleName;
     }
 
-    private SolidColorBrush GetVehiclePathBrush(string vehicleKey)
+    private SolidColorBrush GetVehiclePathBrush(string vehicleKey, Vehicle vehicle)
     {
         if (_vehiclePathBrushes.TryGetValue(vehicleKey, out var cached))
         {
             return cached;
         }
 
-        var color = _vehiclePathPalette[_vehiclePathBrushes.Count % _vehiclePathPalette.Length];
+        var colorIndex = _vehiclePathBrushes.Count;
+        var color = PickVehiclePathColor(colorIndex, vehicle);
         var brush = new SolidColorBrush(color);
         if (brush.CanFreeze)
         {
@@ -901,6 +1209,24 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
         _vehiclePathBrushes[vehicleKey] = brush;
         return brush;
+    }
+
+    private Color PickVehiclePathColor(int colorIndex, Vehicle vehicle)
+    {
+        var paletteColor = _vehiclePathPalette[colorIndex % _vehiclePathPalette.Length];
+
+        // Guarantee the first three vehicles are vivid red, yellow, and green.
+        if (colorIndex < 3)
+        {
+            return paletteColor;
+        }
+
+        var (stateColor, _, _) = GetVehicleColors(vehicle);
+
+        return Color.FromRgb(
+            (byte)((paletteColor.R + stateColor.R) / 2),
+            (byte)((paletteColor.G + stateColor.G) / 2),
+            (byte)((paletteColor.B + stateColor.B) / 2));
     }
 
     private double? ComputeVehicleAngle(Vehicle vehicle, Func<double, double, Point> transform, Dictionary<string, MapNode> nodeLookup)
@@ -1025,7 +1351,11 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     {
         // Save the current settings
         await SaveSettingsAsync();
-        
+
+        // Treat the saved state as the new baseline for cancellation scenarios
+        _originalRotationAngle = _rotationAngle;
+        _originalFlipState = _isFlippedHorizontally;
+
         // Close the settings panel
         _isSettingsPanelOpen = false;
         SettingsPanel.Visibility = Visibility.Collapsed;
@@ -1146,6 +1476,69 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         scaleTransform.ScaleY = scale;
     }
 
+    private void ApplyVehicleLabelTransform(TextBlock textBlock)
+    {
+        var orientationMatrix = _scaleTransform.Value;
+        orientationMatrix.Append(_rotateTransform.Value);
+
+        var xAxis = orientationMatrix.Transform(new Vector(1, 0));
+        var angle = Math.Atan2(xAxis.Y, xAxis.X) * 180.0 / Math.PI;
+        angle = NormalizeAngle(angle);
+
+        var counterAngle = NormalizeAngle(-angle);
+        if (counterAngle > 90)
+        {
+            counterAngle -= 180;
+        }
+        else if (counterAngle < -90)
+        {
+            counterAngle += 180;
+        }
+
+        var determinant = orientationMatrix.M11 * orientationMatrix.M22 - orientationMatrix.M12 * orientationMatrix.M21;
+        var needsMirrorCompensation = determinant < 0;
+
+        Transform? resultTransform = null;
+
+        if (needsMirrorCompensation && Math.Abs(counterAngle) < 0.001)
+        {
+            resultTransform = new ScaleTransform(-1, 1);
+        }
+        else if (!needsMirrorCompensation && Math.Abs(counterAngle) < 0.001)
+        {
+            resultTransform = Transform.Identity;
+        }
+        else
+        {
+            var group = new TransformGroup();
+            if (needsMirrorCompensation)
+            {
+                group.Children.Add(new ScaleTransform(-1, 1));
+            }
+
+            if (Math.Abs(counterAngle) > 0.001)
+            {
+                group.Children.Add(new RotateTransform(counterAngle));
+            }
+
+            if (group.Children.Count == 0)
+            {
+                resultTransform = Transform.Identity;
+            }
+            else if (group.Children.Count == 1)
+            {
+                resultTransform = group.Children[0];
+            }
+            else
+            {
+                resultTransform = group;
+            }
+        }
+
+        textBlock.RenderTransform = resultTransform ?? Transform.Identity;
+        textBlock.RenderTransformOrigin = new Point(0.5, 0.5);
+    }
+
     private void ScheduleRender()
     {
         if (!_needsRender)
@@ -1198,6 +1591,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             OnPropertyChanged(nameof(NodeSize));
             OnPropertyChanged(nameof(VehicleSize));
 
+            UpdateViewTransform();
             ScheduleRender();
         }
         catch (Exception ex)
