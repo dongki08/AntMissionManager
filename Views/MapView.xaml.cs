@@ -237,7 +237,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         get => _nodeSize;
         set
         {
-            var newValue = Math.Clamp(value, 1, 10);
+            var newValue = Math.Clamp(value, 1, 20);
             if (Math.Abs(_nodeSize - newValue) > 0.001)
             {
                 _nodeSize = newValue;
@@ -249,13 +249,13 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
     public double VehicleSize
     {
-        get => _vehicleSize;
+        get => _vehicleSize / 20.0;
         set
         {
-            var newValue = Math.Clamp(value, 8, 40);
-            if (Math.Abs(_vehicleSize - newValue) > 0.001)
+            var newActualSize = Math.Clamp(value * 20.0, 20, 200);
+            if (Math.Abs(_vehicleSize - newActualSize) > 0.001)
             {
-                _vehicleSize = newValue;
+                _vehicleSize = newActualSize;
                 OnPropertyChanged();
                 ScheduleRender();
             }
@@ -1946,65 +1946,20 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
     private void ApplyVehicleLabelTransform(TextBlock textBlock)
     {
-        var orientationMatrix = _scaleTransform.Value;
-        orientationMatrix.Append(_rotateTransform.Value);
+        var group = new TransformGroup();
 
-        var xAxis = orientationMatrix.Transform(new Vector(1, 0));
-        var angle = Math.Atan2(xAxis.Y, xAxis.X) * 180.0 / Math.PI;
-        angle = NormalizeAngle(angle);
+        // 1. Counter-rotate to keep the label upright against the map's rotation.
+        group.Children.Add(new RotateTransform(-_rotationAngle));
 
-        var counterAngle = NormalizeAngle(-angle);
-        if (counterAngle > 90)
+        // 2. If the map is flipped horizontally, we need to flip the label back
+        // so the text is not mirrored.
+        if (_isFlippedHorizontally)
         {
-            counterAngle -= 180;
-        }
-        else if (counterAngle < -90)
-        {
-            counterAngle += 180;
+            group.Children.Add(new ScaleTransform(-1, 1));
         }
 
-        var determinant = orientationMatrix.M11 * orientationMatrix.M22 - orientationMatrix.M12 * orientationMatrix.M21;
-        var needsMirrorCompensation = determinant < 0;
-
-        Transform? resultTransform = null;
-
-        if (needsMirrorCompensation && Math.Abs(counterAngle) < 0.001)
-        {
-            resultTransform = new ScaleTransform(-1, 1);
-        }
-        else if (!needsMirrorCompensation && Math.Abs(counterAngle) < 0.001)
-        {
-            resultTransform = Transform.Identity;
-        }
-        else
-        {
-            var group = new TransformGroup();
-            if (needsMirrorCompensation)
-            {
-                group.Children.Add(new ScaleTransform(-1, 1));
-            }
-
-            if (Math.Abs(counterAngle) > 0.001)
-            {
-                group.Children.Add(new RotateTransform(counterAngle));
-            }
-
-            if (group.Children.Count == 0)
-            {
-                resultTransform = Transform.Identity;
-            }
-            else if (group.Children.Count == 1)
-            {
-                resultTransform = group.Children[0];
-            }
-            else
-            {
-                resultTransform = group;
-            }
-        }
-
-        textBlock.RenderTransform = resultTransform ?? Transform.Identity;
         textBlock.RenderTransformOrigin = new Point(0.5, 0.5);
+        textBlock.RenderTransform = group;
     }
 
     private void ScheduleRender()

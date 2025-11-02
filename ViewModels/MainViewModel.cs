@@ -478,14 +478,32 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            var missions = await _antApiService.GetAllMissionsAsync();
+            var newMissions = await _antApiService.GetAllMissionsAsync();
 
             Application.Current.Dispatcher.Invoke(() =>
             {
-                Missions.Clear();
-                foreach (var mission in missions)
+                var existingMissions = Missions.ToDictionary(m => m.MissionId);
+                var newMissionsDict = newMissions.ToDictionary(m => m.MissionId);
+
+                // Remove missions that no longer exist
+                var missionsToRemove = existingMissions.Keys.Except(newMissionsDict.Keys).ToList();
+                foreach (var missionId in missionsToRemove)
                 {
-                    Missions.Add(mission);
+                    Missions.Remove(existingMissions[missionId]);
+                }
+
+                // Add new missions and update existing ones
+                foreach (var newMission in newMissions)
+                {
+                    if (existingMissions.TryGetValue(newMission.MissionId, out var existingMission))
+                    {
+                        // Update properties
+                        UpdateMissionProperties(existingMission, newMission);
+                    }
+                    else
+                    {
+                        Missions.Add(newMission);
+                    }
                 }
 
                 UpdateMissionStatistics();
@@ -735,22 +753,34 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            var vehicles = await _antApiService.GetAllVehiclesAsync();
+            var newVehicles = await _antApiService.GetAllVehiclesAsync();
 
             Application.Current.Dispatcher.Invoke(() =>
             {
-                Services.MapLogger.Log($"=== MainViewModel: Updating Vehicles collection ===");
-                Services.MapLogger.Log($"Received {vehicles.Count} vehicles from API");
-                
-                Vehicles.Clear();
-                foreach (var vehicle in vehicles)
+                var existingVehicles = Vehicles.ToDictionary(v => v.Name);
+                var newVehiclesDict = newVehicles.ToDictionary(v => v.Name);
+
+                // Remove vehicles that no longer exist
+                var vehiclesToRemove = existingVehicles.Keys.Except(newVehiclesDict.Keys).ToList();
+                foreach (var vehicleName in vehiclesToRemove)
                 {
-                    Services.MapLogger.Log($"Adding vehicle: {vehicle.Name}, State: {vehicle.VehicleState}, Coords: {vehicle.Coordinates?.Count ?? 0}");
-                    Vehicles.Add(vehicle);
+                    Vehicles.Remove(existingVehicles[vehicleName]);
                 }
-                
-                Services.MapLogger.Log($"Vehicles collection now has {Vehicles.Count} items");
-                Services.MapLogger.Log($"Vehicles collection type: {Vehicles.GetType().Name}");
+
+                // Add new vehicles and update existing ones
+                foreach (var newVehicle in newVehicles)
+                {
+                    if (existingVehicles.TryGetValue(newVehicle.Name, out var existingVehicle))
+                    {
+                        // Update properties of the existing vehicle instance
+                        UpdateVehicleProperties(existingVehicle, newVehicle);
+                    }
+                    else
+                    {
+                        // Add new vehicle
+                        Vehicles.Add(newVehicle);
+                    }
+                }
             });
 
             if (!isAutoRefresh)
@@ -829,18 +859,37 @@ public class MainViewModel : ViewModelBase
     {
         try
         {
-            var alarms = await _antApiService.GetAlarmsAsync(AlarmLimit, AlarmSortAscending);
+            var newAlarms = await _antApiService.GetAlarmsAsync(AlarmLimit, AlarmSortAscending);
 
             Application.Current.Dispatcher.Invoke(() =>
             {
-                Alarms.Clear();
-                foreach (var alarm in alarms)
+                var existingAlarms = Alarms.ToDictionary(a => a.Uuid);
+                var newAlarmsDict = newAlarms.ToDictionary(a => a.Uuid);
+
+                // Remove alarms that are no longer in the list
+                var alarmsToRemove = existingAlarms.Keys.Except(newAlarmsDict.Keys).ToList();
+                foreach (var uuid in alarmsToRemove)
                 {
-                    Alarms.Add(alarm);
+                    Alarms.Remove(existingAlarms[uuid]);
                 }
 
+                // Add new alarms and update existing ones
+                foreach (var newAlarm in newAlarms)
+                {
+                    if (existingAlarms.TryGetValue(newAlarm.Uuid, out var existingAlarm))
+                    {
+                        // Update properties of the existing alarm instance
+                        UpdateAlarmProperties(existingAlarm, newAlarm);
+                    }
+                    else
+                    {
+                        // Add new alarm
+                        Alarms.Add(newAlarm);
+                    }
+                }
+
+                // Refreshing the view is still necessary for filtering/sorting to apply correctly
                 RefreshAlarmFilter();
-                UpdateAlarmSort(force: true);
             });
         }
         catch (Exception ex)
@@ -1165,6 +1214,92 @@ public class MainViewModel : ViewModelBase
             nameof(AlarmInfo.Uuid) => alarm.Uuid,
             _ => null
         };
+    }
+
+    private void UpdateVehicleProperties(Vehicle existing, Vehicle newVehicle)
+    {
+        existing.OperatingState = newVehicle.OperatingState;
+        existing.Location = newVehicle.Location;
+        existing.MissionId = newVehicle.MissionId;
+        existing.BatteryLevel = newVehicle.BatteryLevel;
+        existing.Alarms = newVehicle.Alarms;
+        existing.LastUpdate = newVehicle.LastUpdate;
+        existing.IpAddress = newVehicle.IpAddress;
+        existing.IsSimulated = newVehicle.IsSimulated;
+        existing.IsLoaded = newVehicle.IsLoaded;
+        existing.Payload = newVehicle.Payload;
+        existing.Coordinates = newVehicle.Coordinates;
+        existing.Course = newVehicle.Course;
+        existing.CurrentNodeName = newVehicle.CurrentNodeName;
+        existing.TraveledDistance = newVehicle.TraveledDistance;
+        existing.CumulativeUptime = newVehicle.CumulativeUptime;
+        existing.Path = newVehicle.Path;
+        existing.VehicleState = newVehicle.VehicleState;
+        existing.Coverage = newVehicle.Coverage;
+        existing.Port = newVehicle.Port;
+        existing.IsOmni = newVehicle.IsOmni;
+        existing.ForceCharge = newVehicle.ForceCharge;
+        existing.ActionName = newVehicle.ActionName;
+        existing.ActionSourceId = newVehicle.ActionSourceId;
+        existing.ArrivalDate = newVehicle.ArrivalDate;
+        existing.AbsArrivalDate = newVehicle.AbsArrivalDate;
+        existing.ActionNodeId = newVehicle.ActionNodeId;
+        existing.CurrentNodeId = newVehicle.CurrentNodeId;
+        existing.MapName = newVehicle.MapName;
+        existing.GroupName = newVehicle.GroupName;
+        existing.Uncertainty = newVehicle.Uncertainty;
+        existing.ConnectionOk = newVehicle.ConnectionOk;
+        existing.BatteryMaxTemp = newVehicle.BatteryMaxTemp;
+        existing.BatteryVoltage = newVehicle.BatteryVoltage;
+        existing.VehicleType = newVehicle.VehicleType;
+        existing.LockUuid = newVehicle.LockUuid;
+        existing.LockOwnerApp = newVehicle.LockOwnerApp;
+        existing.LockOwnerPc = newVehicle.LockOwnerPc;
+        existing.LockOwnerUser = newVehicle.LockOwnerUser;
+        existing.MissionFrom = newVehicle.MissionFrom;
+        existing.MissionTo = newVehicle.MissionTo;
+        existing.MissionFinal = newVehicle.MissionFinal;
+        existing.Errors = newVehicle.Errors;
+        existing.MissionBlocked = newVehicle.MissionBlocked;
+        existing.ActionSourceType = newVehicle.ActionSourceType;
+        existing.BodyShape = newVehicle.BodyShape;
+        existing.TrafficInfo = newVehicle.TrafficInfo;
+        existing.MissionProgress = newVehicle.MissionProgress;
+        existing.ErrorBits = newVehicle.ErrorBits;
+        existing.SharedMemoryOut = newVehicle.SharedMemoryOut;
+        existing.SharedMemoryIn = newVehicle.SharedMemoryIn;
+        existing.VehicleShape = newVehicle.VehicleShape;
+        existing.ErrorDetailsLabel = newVehicle.ErrorDetailsLabel;
+        existing.Messages = newVehicle.Messages;
+        existing.ErrorDetails = newVehicle.ErrorDetails;
+    }
+
+    private void UpdateAlarmProperties(AlarmInfo existing, AlarmInfo newAlarm)
+    {
+        existing.SourceId = newAlarm.SourceId;
+        existing.SourceType = newAlarm.SourceType;
+        existing.EventName = newAlarm.EventName;
+        existing.AlarmMessage = newAlarm.AlarmMessage;
+        existing.EventCount = newAlarm.EventCount;
+        existing.FirstEventAt = newAlarm.FirstEventAt;
+        existing.LastEventAt = newAlarm.LastEventAt;
+        existing.Timestamp = newAlarm.Timestamp;
+        existing.State = newAlarm.State;
+        existing.ClosedAt = newAlarm.ClosedAt;
+        existing.ClearedAt = newAlarm.ClearedAt;
+    }
+
+    private void UpdateMissionProperties(MissionInfo existing, MissionInfo newMission)
+    {
+        existing.MissionType = newMission.MissionType;
+        existing.FromNode = newMission.FromNode;
+        existing.ToNode = newMission.ToNode;
+        existing.AssignedVehicle = newMission.AssignedVehicle;
+        existing.NavigationState = newMission.NavigationState;
+        existing.TransportState = newMission.TransportState;
+        existing.Priority = newMission.Priority;
+        existing.CreatedAt = newMission.CreatedAt;
+        existing.ArrivingTime = newMission.ArrivingTime;
     }
 
     #endregion

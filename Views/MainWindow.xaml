@@ -385,7 +385,10 @@
                                    BorderThickness="1">
                                 <DataGrid x:Name="MissionDataGrid"
                                          ItemsSource="{Binding Missions}"
-                                         Style="{StaticResource AppDataGridStyle}">
+                                         Style="{StaticResource AppDataGridStyle}"
+                                         RowHeight="45"
+                                         ColumnHeaderStyle="{StaticResource CenteredDataGridHeaderStyle}"
+                                         CellStyle="{StaticResource CenteredDataGridCellStyle}">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Mission ID" Binding="{Binding MissionId}" Width="1.3*"/>
                                         <DataGridTextColumn Header="Type" Binding="{Binding MissionType}" Width="0.9*"/>
@@ -829,7 +832,10 @@
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
                                 <DataGrid ItemsSource="{Binding Vehicles}"
-                                         Style="{StaticResource AppDataGridStyle}">
+                                         Style="{StaticResource AppDataGridStyle}"
+                                         RowHeight="45"
+                                         ColumnHeaderStyle="{StaticResource CenteredDataGridHeaderStyle}"
+                                         CellStyle="{StaticResource CenteredDataGridCellStyle}">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="이름" Binding="{Binding Name}" Width="*"/>
                                         <DataGridTextColumn Header="위치 좌표" Binding="{Binding CoordinatesText}" Width="1.2*"/>

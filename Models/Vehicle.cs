@@ -417,7 +417,7 @@ public class Vehicle : INotifyPropertyChanged
         set { _bodyShape = value; OnPropertyChanged(); OnPropertyChanged(nameof(BodyShapeText)); }
     }
 
-    public string BodyShapeText => BodyShape.Count > 0 ? $"{BodyShape.Count}개 좌표" : "없음";
+    public string BodyShapeText => BodyShape.Count > 0 ? string.Join(", ", BodyShape) : "없음";
 
     public List<string> TrafficInfo
     {
@@ -465,7 +465,7 @@ public class Vehicle : INotifyPropertyChanged
         set { _vehicleShape = value; OnPropertyChanged(); OnPropertyChanged(nameof(VehicleShapeText)); }
     }
 
-    public string VehicleShapeText => VehicleShape.Count > 0 ? $"{VehicleShape.Count}개 좌표" : "없음";
+    public string VehicleShapeText => VehicleShape.Count > 0 ? string.Join(", ", VehicleShape) : "없음";
 
     public List<string> ErrorDetailsLabel
     {
