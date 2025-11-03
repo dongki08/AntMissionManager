@@ -71,6 +71,18 @@ public class MainViewModel : ViewModelBase
     private string _selectedVehicle = string.Empty;
     private string _selectedInsertNode = string.Empty;
     private ObservableCollection<NodeInfo> _availableNodes = new();
+    private ObservableCollection<NodeInfo> _filteredFromNodes = new();
+    private ObservableCollection<NodeInfo> _filteredToNodes = new();
+    private ObservableCollection<NodeInfo> _filteredInsertNodes = new();
+    private string _fromNodeSearchText = string.Empty;
+    private string _toNodeSearchText = string.Empty;
+    private string _insertNodeSearchText = string.Empty;
+    private NodeInfo? _selectedFromNodeItem;
+    private NodeInfo? _selectedToNodeItem;
+    private NodeInfo? _selectedInsertNodeItem;
+    private bool _isFromNodeDropDownOpen;
+    private bool _isToNodeDropDownOpen;
+    private bool _isInsertNodeDropDownOpen;
     private string _vehicleSortProperty = nameof(Vehicle.Name);
     private ListSortDirection _vehicleSortDirection = ListSortDirection.Descending;
 
@@ -607,7 +619,183 @@ public class MainViewModel : ViewModelBase
     public ObservableCollection<NodeInfo> AvailableNodes
     {
         get => _availableNodes;
-        set => SetProperty(ref _availableNodes, value);
+        set
+        {
+            if (SetProperty(ref _availableNodes, value))
+            {
+                UpdateFilteredFromNodes();
+                UpdateFilteredToNodes();
+                UpdateFilteredInsertNodes();
+            }
+        }
+    }
+
+    public ObservableCollection<NodeInfo> FilteredFromNodes
+    {
+        get => _filteredFromNodes;
+        set => SetProperty(ref _filteredFromNodes, value);
+    }
+
+    public ObservableCollection<NodeInfo> FilteredToNodes
+    {
+        get => _filteredToNodes;
+        set => SetProperty(ref _filteredToNodes, value);
+    }
+
+    public ObservableCollection<NodeInfo> FilteredInsertNodes
+    {
+        get => _filteredInsertNodes;
+        set => SetProperty(ref _filteredInsertNodes, value);
+    }
+
+    public string FromNodeSearchText
+    {
+        get => _fromNodeSearchText;
+        set
+        {
+            if (SetProperty(ref _fromNodeSearchText, value))
+            {
+                UpdateFilteredFromNodes();
+                // 텍스트 입력 시 드롭다운 자동 열기
+                if (!string.IsNullOrEmpty(value))
+                {
+                    IsFromNodeDropDownOpen = true;
+                }
+            }
+        }
+    }
+
+    public string ToNodeSearchText
+    {
+        get => _toNodeSearchText;
+        set
+        {
+            if (SetProperty(ref _toNodeSearchText, value))
+            {
+                UpdateFilteredToNodes();
+                // 텍스트 입력 시 드롭다운 자동 열기
+                if (!string.IsNullOrEmpty(value))
+                {
+                    IsToNodeDropDownOpen = true;
+                }
+            }
+        }
+    }
+
+    public bool IsFromNodeDropDownOpen
+    {
+        get => _isFromNodeDropDownOpen;
+        set
+        {
+            if (SetProperty(ref _isFromNodeDropDownOpen, value))
+            {
+                // 드롭다운이 열릴 때 (토글 버튼 클릭)
+                if (value && string.IsNullOrEmpty(_fromNodeSearchText))
+                {
+                    // 검색 텍스트가 없으면 전체 리스트 표시
+                    UpdateFilteredFromNodes();
+                }
+            }
+        }
+    }
+
+    public bool IsToNodeDropDownOpen
+    {
+        get => _isToNodeDropDownOpen;
+        set
+        {
+            if (SetProperty(ref _isToNodeDropDownOpen, value))
+            {
+                // 드롭다운이 열릴 때 (토글 버튼 클릭)
+                if (value && string.IsNullOrEmpty(_toNodeSearchText))
+                {
+                    // 검색 텍스트가 없으면 전체 리스트 표시
+                    UpdateFilteredToNodes();
+                }
+            }
+        }
+    }
+
+    public string InsertNodeSearchText
+    {
+        get => _insertNodeSearchText;
+        set
+        {
+            if (SetProperty(ref _insertNodeSearchText, value))
+            {
+                UpdateFilteredInsertNodes();
+                // 텍스트 입력 시 드롭다운 자동 열기
+                if (!string.IsNullOrEmpty(value))
+                {
+                    IsInsertNodeDropDownOpen = true;
+                }
+            }
+        }
+    }
+
+    public bool IsInsertNodeDropDownOpen
+    {
+        get => _isInsertNodeDropDownOpen;
+        set
+        {
+            if (SetProperty(ref _isInsertNodeDropDownOpen, value))
+            {
+                // 드롭다운이 열릴 때 (토글 버튼 클릭)
+                if (value && string.IsNullOrEmpty(_insertNodeSearchText))
+                {
+                    // 검색 텍스트가 없으면 전체 리스트 표시
+                    UpdateFilteredInsertNodes();
+                }
+            }
+        }
+    }
+
+    public NodeInfo? SelectedFromNodeItem
+    {
+        get => _selectedFromNodeItem;
+        set
+        {
+            if (SetProperty(ref _selectedFromNodeItem, value))
+            {
+                if (value != null)
+                {
+                    FromNode = value.Name;
+                    FromNodeSearchText = value.Name;
+                }
+            }
+        }
+    }
+
+    public NodeInfo? SelectedToNodeItem
+    {
+        get => _selectedToNodeItem;
+        set
+        {
+            if (SetProperty(ref _selectedToNodeItem, value))
+            {
+                if (value != null)
+                {
+                    ToNode = value.Name;
+                    ToNodeSearchText = value.Name;
+                }
+            }
+        }
+    }
+
+    public NodeInfo? SelectedInsertNodeItem
+    {
+        get => _selectedInsertNodeItem;
+        set
+        {
+            if (SetProperty(ref _selectedInsertNodeItem, value))
+            {
+                if (value != null)
+                {
+                    SelectedInsertNode = value.Name;
+                    InsertNodeSearchText = value.Name;
+                }
+            }
+        }
     }
 
     public string ServerUrl
@@ -2095,6 +2283,51 @@ public class MainViewModel : ViewModelBase
         }
 
         existing.CreatedAtDisplay = newMission.CreatedAtDisplay;
+    }
+
+    private void UpdateFilteredFromNodes()
+    {
+        if (string.IsNullOrWhiteSpace(_fromNodeSearchText))
+        {
+            FilteredFromNodes = new ObservableCollection<NodeInfo>(_availableNodes);
+        }
+        else
+        {
+            var filtered = _availableNodes
+                .Where(n => n.Name.StartsWith(_fromNodeSearchText, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            FilteredFromNodes = new ObservableCollection<NodeInfo>(filtered);
+        }
+    }
+
+    private void UpdateFilteredToNodes()
+    {
+        if (string.IsNullOrWhiteSpace(_toNodeSearchText))
+        {
+            FilteredToNodes = new ObservableCollection<NodeInfo>(_availableNodes);
+        }
+        else
+        {
+            var filtered = _availableNodes
+                .Where(n => n.Name.StartsWith(_toNodeSearchText, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            FilteredToNodes = new ObservableCollection<NodeInfo>(filtered);
+        }
+    }
+
+    private void UpdateFilteredInsertNodes()
+    {
+        if (string.IsNullOrWhiteSpace(_insertNodeSearchText))
+        {
+            FilteredInsertNodes = new ObservableCollection<NodeInfo>(_availableNodes);
+        }
+        else
+        {
+            var filtered = _availableNodes
+                .Where(n => n.Name.StartsWith(_insertNodeSearchText, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            FilteredInsertNodes = new ObservableCollection<NodeInfo>(filtered);
+        }
     }
 
     #endregion

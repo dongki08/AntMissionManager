@@ -1889,6 +1889,27 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         IsFlippedHorizontally = FlipCheckBox.IsChecked == true;
     }
 
+    private void RotateVehicle90_Click(object sender, RoutedEventArgs e)
+    {
+        VehicleAngleSlider.Value = (_vehicleAngleOffset + 90) % 360;
+    }
+
+    private void RotateVehicle180_Click(object sender, RoutedEventArgs e)
+    {
+        VehicleAngleSlider.Value = (_vehicleAngleOffset + 180) % 360;
+    }
+
+    private void RotateVehicle270_Click(object sender, RoutedEventArgs e)
+    {
+        VehicleAngleSlider.Value = (_vehicleAngleOffset + 270) % 360;
+    }
+
+    private void ToggleVehicleFlip_Click(object sender, RoutedEventArgs e)
+    {
+        VehicleFlipCheckBox.IsChecked = !VehicleFlipCheckBox.IsChecked;
+        AreVehiclesFlipped = VehicleFlipCheckBox.IsChecked == true;
+    }
+
     #endregion
 
     #region Optimization and Settings Methods

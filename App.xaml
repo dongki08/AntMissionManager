@@ -148,6 +148,92 @@
                 </Setter>
             </Style>
             
+            <!-- Settings Tab Styles -->
+            <Style x:Key="SettingsTabControlStyle" TargetType="TabControl">
+                <Setter Property="Margin" Value="0,0,0,16"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabControl">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Top"                                                                          
+                                        Background="{StaticResource SurfaceBackground}"                                               
+                                        CornerRadius="10"                                                                             
+                                        Padding="6"                                                                                   
+                                        Margin="0,0,0,12"                                                                             
+                                        Width="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">               
+                                    <TabPanel x:Name="HeaderPanel"                                                                    
+                                              Background="Transparent"
+                                              IsItemsHost="True"                                                                      
+                                              KeyboardNavigation.TabIndex="1"                                                         
+                                              HorizontalAlignment="Stretch"/>                                                         
+                                </Border> 
+                                <Border Background="Transparent"
+                                        CornerRadius="12">
+                                    <ContentPresenter x:Name="PART_SelectedContentHost"
+                                                      Margin="0"
+                                                      ContentSource="SelectedContent"
+                                                      ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                                      ContentTemplateSelector="{TemplateBinding SelectedContentTemplateSelector}"
+                                                      ContentStringFormat="{TemplateBinding SelectedContentStringFormat}"/>
+                                </Border>
+                            </DockPanel>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            
+            <Style x:Key="SettingsTabItemStyle" TargetType="TabItem">
+                <Setter Property="Foreground" Value="{StaticResource MutedText}"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Padding" Value="16,8"/>
+                <Setter Property="Margin" Value="0,0,6,0"/>
+                <Setter Property="MinWidth" Value="90"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabItem">
+                            <Border x:Name="Bd"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    BorderThickness="1"
+                                    
+                                    Padding="{TemplateBinding Padding}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter x:Name="ContentSite"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Center"
+                                                  ContentSource="Header"
+                                                  RecognizesAccessKey="True"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBackground}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource HoverBackground}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource PrimaryBrush}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BorderAccentBrush}"/>
+                                    <Setter TargetName="Bd" Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect Color="#1E293B" BlurRadius="14" ShadowDepth="0" Opacity="0.35"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            
             <!-- Modern Card Style -->
             <Style x:Key="ModernCard" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource CardBackground}"/>

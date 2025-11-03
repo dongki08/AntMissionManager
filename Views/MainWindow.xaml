@@ -603,6 +603,9 @@
                                              BorderThickness="0"
                                              Foreground="{StaticResource PrimaryText}"
                                              Padding="12,8"
+                                             IsEditable="True"
+                                             IsTextSearchEnabled="True"
+                                             StaysOpenOnEdit="True"
                                              materialDesign:HintAssist.Hint="Filter by Title"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
@@ -739,14 +742,18 @@
                                        BorderBrush="{StaticResource BorderBrush}"
                                        BorderThickness="1"
                                        Visibility="{Binding IsNotMovingMission, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <ComboBox SelectedValue="{Binding FromNode}"
-                                             ItemsSource="{Binding AvailableNodes}"
+                                    <ComboBox SelectedItem="{Binding SelectedFromNodeItem}"
+                                             Text="{Binding FromNodeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             IsDropDownOpen="{Binding IsFromNodeDropDownOpen}"
+                                             ItemsSource="{Binding FilteredFromNodes}"
                                              DisplayMemberPath="Name"
-                                             SelectedValuePath="Name"
                                              Background="Transparent"
                                              BorderThickness="0"
                                              Foreground="{StaticResource PrimaryText}"
                                              Padding="16,12"
+                                             IsEditable="True"
+                                             IsTextSearchEnabled="False"
+                                             StaysOpenOnEdit="True"
                                              materialDesign:HintAssist.Hint="From Node"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
@@ -757,14 +764,18 @@
                                        Margin="0,0,0,12"
                                        BorderBrush="{StaticResource BorderBrush}"
                                        BorderThickness="1">
-                                    <ComboBox SelectedValue="{Binding ToNode}"
-                                             ItemsSource="{Binding AvailableNodes}"
+                                    <ComboBox SelectedItem="{Binding SelectedToNodeItem}"
+                                             Text="{Binding ToNodeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             IsDropDownOpen="{Binding IsToNodeDropDownOpen}"
+                                             ItemsSource="{Binding FilteredToNodes}"
                                              DisplayMemberPath="Name"
-                                             SelectedValuePath="Name"
                                              Background="Transparent"
                                              BorderThickness="0"
                                              Foreground="{StaticResource PrimaryText}"
                                              Padding="16,12"
+                                             IsEditable="True"
+                                             IsTextSearchEnabled="False"
+                                             StaysOpenOnEdit="True"
                                              materialDesign:HintAssist.Hint="To Node"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
@@ -968,35 +979,32 @@
                                        BorderBrush="{StaticResource BorderBrush}"
                                        BorderThickness="1"
                                        Margin="12,0,0,0">
-                                    <ComboBox SelectedValue="{Binding SelectedInsertNode}"
-                                             ItemsSource="{Binding AvailableNodes}"
+                                    <ComboBox SelectedItem="{Binding SelectedInsertNodeItem}"
+                                             Text="{Binding InsertNodeSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             IsDropDownOpen="{Binding IsInsertNodeDropDownOpen}"
+                                             ItemsSource="{Binding FilteredInsertNodes}"
                                              DisplayMemberPath="Name"
-                                             SelectedValuePath="Name"
                                              Background="Transparent"
                                              BorderThickness="0"
                                              Foreground="{StaticResource PrimaryText}"
                                              Width="160"
                                              Padding="12,8"
+                                             IsEditable="True"
+                                             IsTextSearchEnabled="False"
+                                             StaysOpenOnEdit="True"
                                              materialDesign:HintAssist.Hint="Insert Node"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
                                 
-                                <Button Content="Insert Vehicle" 
+                                <Button Content="Insert Vehicle" Width="110"
                                        Style="{StaticResource ModernPrimaryButton}"
                                        Command="{Binding InsertVehicleCommand}"
                                        Margin="12,0,0,0"/>
                                 
-                                <Button Content="Extract Vehicle" 
+                                <Button Content="Extract Vehicle" Width="110"
                                        Style="{StaticResource ModernPrimaryButton}"
                                        Command="{Binding ExtractVehicleCommand}"/>
                                 
-                                <Button Content="Refresh Vehicles" 
-                                       Style="{StaticResource ModernAccentButton}"
-                                       Command="{Binding RefreshVehiclesCommand}"/>
-                                
-                                <Button Content="Refresh Nodes" 
-                                       Style="{StaticResource ModernAccentButton}"
-                                       Command="{Binding RefreshNodesCommand}"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -1148,7 +1156,7 @@
                                         </ComboBox>
                                     </Border>
 
-                                    <Button Content="새로고침"
+                                    <Button Content="새로고침" Width="100"
                                            Style="{StaticResource ModernPrimaryButton}"
                                            Command="{Binding RefreshAlarmsCommand}">
                                         <Button.ContentTemplate>
@@ -1210,7 +1218,7 @@
                                         </Grid>
                                     </Border>
 
-                                    <Button Content="초기화"
+                                    <Button Content="초기화" Width="80"
                                            Style="{StaticResource ModernPrimaryButton}"
                                            Command="{Binding ClearAlarmSearchCommand}"/>
                                 </StackPanel>
