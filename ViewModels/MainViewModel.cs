@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
@@ -45,11 +46,24 @@ public class MainViewModel : ViewModelBase
     private ListSortDirection _missionSortDirection = ListSortDirection.Descending;
 
     // Mission Router Properties
-    private ObservableCollection<MissionRoute> _routes = new();
-    private ObservableCollection<RouteNode> _selectedNodes = new();
-    private string _routeName = string.Empty;
-    private string _selectedMissionType = "Transport";
-    private string _selectedNode = string.Empty;
+    private ObservableCollection<MissionTemplate> _missionTemplates = new();
+    private CollectionViewSource? _templateViewSource;
+    private MissionTemplate? _selectedTemplate;
+    private string _templateName = string.Empty;
+    private string? _selectedTemplateFilter;
+    private ObservableCollection<string> _templateTitles = new();
+    private MissionTemplateType _selectedTemplateType = MissionTemplateType.Moving;
+    private string _fromNode = string.Empty;
+    private string _toNode = string.Empty;
+    private string _templateVehicle = string.Empty;
+    private int _templatePriority = 2;
+    private string _templatePriorityDescription = string.Empty;
+
+    // Dynamic Mission Vars
+    private ObservableCollection<DynamicNodeVar> _fromNodeVars = new();
+    private ObservableCollection<DynamicNodeVar> _toNodeVars = new();
+    private string _fromNodeType = "Dynamic_Lift";
+    private string _toNodeType = "Dynamic_Lift";
 
     // Vehicle Management Properties
     private ObservableCollection<Vehicle> _vehicles = new();
@@ -86,6 +100,10 @@ public class MainViewModel : ViewModelBase
         _missionViewSource.Filter += OnMissionFilter;
         _missionViewSource.SortDescriptions.Add(new SortDescription(nameof(MissionInfo.MissionIdSortValue), ListSortDirection.Descending));
         ApplyMissionSort();
+
+        _missionTemplates.CollectionChanged += OnMissionTemplatesCollectionChanged;
+        _templateViewSource = new CollectionViewSource { Source = _missionTemplates };
+        _templateViewSource.Filter += OnTemplateFilter;
 
         _vehicleViewSource = new CollectionViewSource { Source = _vehicles };
         ApplyVehicleSort(_vehicleSortProperty, _vehicleSortDirection, updateState: false);
@@ -124,7 +142,7 @@ public class MainViewModel : ViewModelBase
         ApplyDefaultAlarmSort(force: true);
 
         InitializeCommands();
-        LoadInitialData();
+        _ = LoadInitialDataAsync();
 
         // LoginViewModel에서 이미 로그인했으므로 자동 연결 불필요
         // 연결 상태 확인만 수행
@@ -154,6 +172,8 @@ public class MainViewModel : ViewModelBase
             // 타이머 중지
             StopRealtimeRefreshTimer();
         }
+
+        CommandManager.InvalidateRequerySuggested();
     }
 
     private async Task LoadInitialServerData()
@@ -209,7 +229,10 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            await RefreshMissionsAsync(isAutoRefresh: true);
+            if (!(SelectedMissionFilter?.IsAll ?? false))
+            {
+                await RefreshMissionsAsync(isAutoRefresh: true);
+            }
             await RefreshVehiclesAsync(isAutoRefresh: true);
             await RefreshAlarmsAsync(isAutoRefresh: true);
         }
@@ -272,7 +295,12 @@ public class MainViewModel : ViewModelBase
                 return;
             }
 
-            if (value?.IsDefault ?? false)
+            if (value?.IsAll ?? false)
+            {
+                RefreshMissionFilter();
+                _ = LoadFullMissionHistoryAsync();
+            }
+            else if (value?.IsDefault ?? false)
             {
                 var anyChanged = false;
 
@@ -297,6 +325,8 @@ public class MainViewModel : ViewModelBase
             {
                 RefreshMissionFilter();
             }
+
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 
@@ -368,34 +398,178 @@ public class MainViewModel : ViewModelBase
     }
 
     // Mission Router
-    public ObservableCollection<MissionRoute> Routes
+    public ObservableCollection<MissionTemplate> MissionTemplates
     {
-        get => _routes;
-        set => SetProperty(ref _routes, value);
+        get => _missionTemplates;
+        set
+        {
+            if (_missionTemplates != null)
+            {
+                _missionTemplates.CollectionChanged -= OnMissionTemplatesCollectionChanged;
+            }
+
+            if (SetProperty(ref _missionTemplates, value))
+            {
+                if (_missionTemplates != null)
+                {
+                    _missionTemplates.CollectionChanged += OnMissionTemplatesCollectionChanged;
+                }
+
+                if (_templateViewSource != null)
+                {
+                    _templateViewSource.Source = _missionTemplates;
+                    _templateViewSource.View?.Refresh();
+                }
+
+                RefreshTemplateTitles();
+                CommandManager.InvalidateRequerySuggested();
+                OnPropertyChanged(nameof(TemplateView));
+            }
+        }
     }
 
-    public ObservableCollection<RouteNode> SelectedNodes
+    public ICollectionView? TemplateView => _templateViewSource?.View;
+
+    public ObservableCollection<string> TemplateTitles
     {
-        get => _selectedNodes;
-        set => SetProperty(ref _selectedNodes, value);
+        get => _templateTitles;
+        set => SetProperty(ref _templateTitles, value);
     }
 
-    public string RouteName
+    public string? SelectedTemplateFilter
     {
-        get => _routeName;
-        set => SetProperty(ref _routeName, value);
+        get => _selectedTemplateFilter;
+        set
+        {
+            if (SetProperty(ref _selectedTemplateFilter, value))
+            {
+                _templateViewSource?.View?.Refresh();
+                OnPropertyChanged(nameof(TemplateView));
+            }
+        }
     }
 
-    public string SelectedMissionType
+    public MissionTemplate? SelectedTemplate
     {
-        get => _selectedMissionType;
-        set => SetProperty(ref _selectedMissionType, value);
+        get => _selectedTemplate;
+        set => SetProperty(ref _selectedTemplate, value);
     }
 
-    public string SelectedNode
+    public string TemplateTitle
     {
-        get => _selectedNode;
-        set => SetProperty(ref _selectedNode, value);
+        get => _templateName;
+        set
+        {
+            if (SetProperty(ref _templateName, value))
+            {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public MissionTemplateType SelectedTemplateType
+    {
+        get => _selectedTemplateType;
+        set
+        {
+            if (SetProperty(ref _selectedTemplateType, value))
+            {
+                OnPropertyChanged(nameof(IsMovingMission));
+                OnPropertyChanged(nameof(IsNotMovingMission));
+                OnPropertyChanged(nameof(IsPickAndDropMission));
+                OnPropertyChanged(nameof(IsDynamicMission));
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public bool IsMovingMission => _selectedTemplateType == MissionTemplateType.Moving;
+    public bool IsPickAndDropMission => _selectedTemplateType == MissionTemplateType.PickAndDrop;
+    public bool IsDynamicMission => _selectedTemplateType == MissionTemplateType.Dynamic;
+    public bool IsNotMovingMission => _selectedTemplateType != MissionTemplateType.Moving;
+
+    public string FromNode
+    {
+        get => _fromNode;
+        set
+        {
+            if (SetProperty(ref _fromNode, value))
+            {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public string ToNode
+    {
+        get => _toNode;
+        set
+        {
+            if (SetProperty(ref _toNode, value))
+            {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public string TemplateVehicle
+    {
+        get => _templateVehicle;
+        set
+        {
+            if (SetProperty(ref _templateVehicle, value))
+            {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public int TemplatePriority
+    {
+        get => _templatePriority;
+        set
+        {
+            if (SetProperty(ref _templatePriority, value))
+            {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public string TemplatePriorityDescription
+    {
+        get => _templatePriorityDescription;
+        set
+        {
+            if (SetProperty(ref _templatePriorityDescription, value))
+            {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
+    public ObservableCollection<DynamicNodeVar> FromNodeVars
+    {
+        get => _fromNodeVars;
+        set => SetProperty(ref _fromNodeVars, value);
+    }
+
+    public ObservableCollection<DynamicNodeVar> ToNodeVars
+    {
+        get => _toNodeVars;
+        set => SetProperty(ref _toNodeVars, value);
+    }
+
+    public string FromNodeType
+    {
+        get => _fromNodeType;
+        set => SetProperty(ref _fromNodeType, value);
+    }
+
+    public string ToNodeType
+    {
+        get => _toNodeType;
+        set => SetProperty(ref _toNodeType, value);
     }
 
     // Vehicle Management
@@ -532,14 +706,17 @@ public class MainViewModel : ViewModelBase
     public ICommand RefreshMissionsCommand { get; private set; } = null!;
     public ICommand CancelMissionCommand { get; private set; } = null!;
     
-    public ICommand AddNodeCommand { get; private set; } = null!;
-    public ICommand RemoveNodeCommand { get; private set; } = null!;
-    public ICommand SaveRouteCommand { get; private set; } = null!;
-    public ICommand ClearRouteCommand { get; private set; } = null!;
-    public ICommand ImportRoutesCommand { get; private set; } = null!;
-    public ICommand ExportRoutesCommand { get; private set; } = null!;
-    public ICommand EditRouteCommand { get; private set; } = null!;
-    public ICommand DeleteRouteCommand { get; private set; } = null!;
+    public ICommand SaveTemplateCommand { get; private set; } = null!;
+    public ICommand ClearTemplateCommand { get; private set; } = null!;
+    public ICommand ExecuteTemplateCommand { get; private set; } = null!;
+    public ICommand EditTemplateCommand { get; private set; } = null!;
+    public ICommand DeleteTemplateCommand { get; private set; } = null!;
+    public ICommand AddFromVarCommand { get; private set; } = null!;
+    public ICommand AddToVarCommand { get; private set; } = null!;
+    public ICommand RemoveFromVarCommand { get; private set; } = null!;
+    public ICommand RemoveToVarCommand { get; private set; } = null!;
+    public ICommand ImportTemplatesCommand { get; private set; } = null!;
+    public ICommand ExportTemplatesCommand { get; private set; } = null!;
     
     public ICommand InsertVehicleCommand { get; private set; } = null!;
     public ICommand ExtractVehicleCommand { get; private set; } = null!;
@@ -557,14 +734,17 @@ public class MainViewModel : ViewModelBase
         RefreshMissionsCommand = new AsyncRelayCommand(ExecuteRefreshMissions);
         CancelMissionCommand = new AsyncRelayCommand(ExecuteCancelMissionAsync, CanExecuteCancelMission);
         
-        AddNodeCommand = new RelayCommand(ExecuteAddNode, () => !string.IsNullOrEmpty(SelectedNode));
-        RemoveNodeCommand = new RelayCommand(ExecuteRemoveNode);
-        SaveRouteCommand = new RelayCommand(ExecuteSaveRoute, CanExecuteSaveRoute);
-        ClearRouteCommand = new RelayCommand(ExecuteClearRoute);
-        ImportRoutesCommand = new RelayCommand(ExecuteImportRoutes);
-        ExportRoutesCommand = new RelayCommand(ExecuteExportRoutes);
-        EditRouteCommand = new RelayCommand(ExecuteEditRoute);
-        DeleteRouteCommand = new RelayCommand(ExecuteDeleteRoute);
+        SaveTemplateCommand = new AsyncRelayCommand(ExecuteSaveTemplate, CanExecuteSaveTemplate);
+        ClearTemplateCommand = new RelayCommand(ExecuteClearTemplate);
+        ExecuteTemplateCommand = new AsyncRelayCommand(ExecuteTemplate);
+        EditTemplateCommand = new RelayCommand(ExecuteEditTemplate);
+        DeleteTemplateCommand = new AsyncRelayCommand(ExecuteDeleteTemplate);
+        AddFromVarCommand = new RelayCommand(ExecuteAddFromVar);
+        AddToVarCommand = new RelayCommand(ExecuteAddToVar);
+        RemoveFromVarCommand = new RelayCommand(ExecuteRemoveFromVar);
+        RemoveToVarCommand = new RelayCommand(ExecuteRemoveToVar);
+        ImportTemplatesCommand = new AsyncRelayCommand(ExecuteImportTemplates);
+        ExportTemplatesCommand = new AsyncRelayCommand(ExecuteExportTemplates, _ => MissionTemplates.Any());
         
         InsertVehicleCommand = new AsyncRelayCommand(ExecuteInsertVehicle, CanExecuteVehicleCommand);
         ExtractVehicleCommand = new AsyncRelayCommand(ExecuteExtractVehicle, CanExecuteVehicleCommand);
@@ -608,10 +788,20 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private Task ExecuteRefreshMissions() => RefreshMissionsAsync(isAutoRefresh: false);
-
-    private async Task RefreshMissionsAsync(bool isAutoRefresh)
+    private Task ExecuteRefreshMissions()
     {
+        return SelectedMissionFilter?.IsAll == true
+            ? LoadFullMissionHistoryAsync()
+            : RefreshMissionsAsync(isAutoRefresh: false);
+    }
+
+    private async Task RefreshMissionsAsync(bool isAutoRefresh, bool allowWhenAll = false)
+    {
+        if (!allowWhenAll && (SelectedMissionFilter?.IsAll ?? false))
+        {
+            return;
+        }
+
         if (!isAutoRefresh)
         {
             StatusText = "미션 정보 새로고침 중...";
@@ -648,6 +838,7 @@ public class MainViewModel : ViewModelBase
                 }
 
                 RefreshMissionFilter();
+                CommandManager.InvalidateRequerySuggested();
             });
 
             if (!isAutoRefresh)
@@ -665,6 +856,10 @@ public class MainViewModel : ViewModelBase
             {
                 Debug.WriteLine($"미션 자동 갱신 오류: {ex.Message}");
             }
+        }
+        finally
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 
@@ -728,163 +923,263 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private void ExecuteAddNode()
+
+    // Mission Template Methods
+    private bool CanExecuteSaveTemplate()
     {
-        if (!string.IsNullOrEmpty(SelectedNode))
-        {
-            var node = new RouteNode
-            {
-                Index = SelectedNodes.Count + 1,
-                NodeName = SelectedNode
-            };
-            
-            SelectedNodes.Add(node);
-            SelectedNode = string.Empty;
-        }
+        if (string.IsNullOrWhiteSpace(TemplateTitle))
+            return false;
+
+        if (IsMovingMission)
+            return !string.IsNullOrWhiteSpace(ToNode);
+
+        return !string.IsNullOrWhiteSpace(FromNode) && !string.IsNullOrWhiteSpace(ToNode);
     }
 
-    private void ExecuteRemoveNode(object? parameter)
+    private async Task ExecuteSaveTemplate()
     {
-        if (parameter is RouteNode node)
+        var template = new MissionTemplate
         {
-            SelectedNodes.Remove(node);
-            
-            // 인덱스 재정렬
-            for (int i = 0; i < SelectedNodes.Count; i++)
-            {
-                SelectedNodes[i].Index = i + 1;
-            }
-        }
-    }
-
-    private bool CanExecuteSaveRoute()
-    {
-        return !string.IsNullOrWhiteSpace(RouteName) && 
-               SelectedNodes.Count >= 2 && 
-               !string.IsNullOrWhiteSpace(SelectedMissionType);
-    }
-
-    private void ExecuteSaveRoute()
-    {
-        var route = new MissionRoute
-        {
-            Id = Guid.NewGuid().ToString(),
-            Name = RouteName,
-            Nodes = SelectedNodes.Select(n => n.NodeName).ToList(),
-            MissionType = SelectedMissionType,
+            Title = TemplateTitle,
+            TemplateType = SelectedTemplateType,
+            FromNode = FromNode,
+            ToNode = ToNode,
+            Vehicle = TemplateVehicle,
+            Priority = TemplatePriority,
+            PriorityDescription = TemplatePriorityDescription,
             CreatedAt = DateTime.Now,
             IsActive = true
         };
 
-        Routes.Add(route);
-        
+        if (IsDynamicMission)
+        {
+            if (FromNodeVars.Count > 0)
+            {
+                template.FromNodeConfig = new DynamicNodeConfig
+                {
+                    NodeType = FromNodeType,
+                    Vars = new ObservableCollection<DynamicNodeVar>(FromNodeVars)
+                };
+            }
+
+            if (ToNodeVars.Count > 0)
+            {
+                template.ToNodeConfig = new DynamicNodeConfig
+                {
+                    NodeType = ToNodeType,
+                    Vars = new ObservableCollection<DynamicNodeVar>(ToNodeVars)
+                };
+            }
+        }
+
+        MissionTemplates.Add(template);
+        OnPropertyChanged(nameof(TemplateView));
+
         try
         {
-            _fileService.SaveRoutes(Routes.ToList());
-            StatusText = "라우터가 저장되었습니다.";
-            
-            ExecuteClearRoute();
+            await _fileService.SaveTemplatesAsync(MissionTemplates.ToList());
+            StatusText = "템플릿이 저장되었습니다.";
+            ExecuteClearTemplate();
         }
         catch (Exception ex)
         {
-            StatusText = $"라우터 저장 실패: {ex.Message}";
+            StatusText = $"템플릿 저장 실패: {ex.Message}";
+        }
+        finally
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 
-    private void ExecuteClearRoute()
+    private void ExecuteClearTemplate()
     {
-        RouteName = string.Empty;
-        SelectedMissionType = "Transport";
-        SelectedNodes.Clear();
+        TemplateTitle = string.Empty;
+        FromNode = string.Empty;
+        ToNode = string.Empty;
+        TemplateVehicle = string.Empty;
+        TemplatePriority = 2;
+        TemplatePriorityDescription = string.Empty;
+        FromNodeVars.Clear();
+        ToNodeVars.Clear();
+        FromNodeType = "Dynamic_Lift";
+        ToNodeType = "Dynamic_Lift";
+        CommandManager.InvalidateRequerySuggested();
     }
 
-    private void ExecuteImportRoutes()
+    private async Task ExecuteTemplate(object? parameter)
+    {
+        if (parameter is not MissionTemplate template)
+            return;
+
+        StatusText = $"템플릿 '{template.Title}' 실행 중...";
+
+        try
+        {
+            var success = await _antApiService.CreateMissionFromTemplateAsync(template);
+
+            if (success)
+            {
+                StatusText = $"미션이 생성되었습니다: {template.Title}";
+                await RefreshMissionsAsync(isAutoRefresh: false);
+            }
+            else
+            {
+                StatusText = $"미션 생성 실패: {template.Title}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"미션 생성 오류: {ex.Message}";
+        }
+    }
+
+    private void ExecuteEditTemplate(object? parameter)
+    {
+        if (parameter is not MissionTemplate template)
+            return;
+
+        TemplateTitle = template.Title;
+        SelectedTemplateType = template.TemplateType;
+        FromNode = template.FromNode;
+        ToNode = template.ToNode;
+        TemplateVehicle = template.Vehicle;
+        TemplatePriority = template.Priority;
+        TemplatePriorityDescription = template.PriorityDescription;
+
+        if (template.FromNodeConfig != null)
+        {
+            FromNodeType = template.FromNodeConfig.NodeType;
+            FromNodeVars = new ObservableCollection<DynamicNodeVar>(template.FromNodeConfig.Vars);
+        }
+
+        if (template.ToNodeConfig != null)
+        {
+            ToNodeType = template.ToNodeConfig.NodeType;
+            ToNodeVars = new ObservableCollection<DynamicNodeVar>(template.ToNodeConfig.Vars);
+        }
+
+        MissionTemplates.Remove(template);
+        OnPropertyChanged(nameof(TemplateView));
+    }
+
+    private void ExecuteAddFromVar()
+    {
+        FromNodeVars.Add(new DynamicNodeVar { Key = "", Value = "" });
+    }
+
+    private void ExecuteAddToVar()
+    {
+        ToNodeVars.Add(new DynamicNodeVar { Key = "", Value = "" });
+    }
+
+    private void ExecuteRemoveFromVar(object? parameter)
+    {
+        if (parameter is DynamicNodeVar var)
+        {
+            FromNodeVars.Remove(var);
+        }
+    }
+
+    private void ExecuteRemoveToVar(object? parameter)
+    {
+        if (parameter is DynamicNodeVar var)
+        {
+            ToNodeVars.Remove(var);
+        }
+    }
+
+    private async Task ExecuteDeleteTemplate(object? parameter)
+    {
+        if (parameter is not MissionTemplate template)
+        {
+            return;
+        }
+
+        var confirmed = CommonDialogWindow.ShowDialog(
+            message: $"템플릿 \"{template.Title}\"을(를) 삭제할까요?",
+            title: "템플릿 삭제 확인",
+            type: CommonDialogWindow.DialogType.Warning);
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        MissionTemplates.Remove(template);
+        OnPropertyChanged(nameof(TemplateView));
+
+        try
+        {
+            await _fileService.SaveTemplatesAsync(MissionTemplates.ToList());
+            StatusText = "템플릿이 삭제되었습니다.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"템플릿 삭제 실패: {ex.Message}";
+        }
+        finally
+        {
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    private async Task ExecuteImportTemplates(object? parameter)
     {
         var openFileDialog = new OpenFileDialog
         {
-            Filter = "CSV 파일 (*.csv)|*.csv|모든 파일 (*.*)|*.*",
-            Title = "라우터 파일 가져오기"
+            Filter = "JSON 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            Title = "템플릿 파일 가져오기"
         };
 
         if (openFileDialog.ShowDialog() == true)
         {
             try
             {
-                var importedRoutes = _fileService.ImportRoutes(openFileDialog.FileName);
-                
-                foreach (var route in importedRoutes)
+                var importedTemplates = await _fileService.ImportTemplatesAsync(openFileDialog.FileName);
+
+                foreach (var template in importedTemplates)
                 {
-                    Routes.Add(route);
+                    MissionTemplates.Add(template);
                 }
-                
-                _fileService.SaveRoutes(Routes.ToList());
-                StatusText = $"{importedRoutes.Count}개의 라우터를 가져왔습니다.";
+
+                OnPropertyChanged(nameof(TemplateView));
+                await _fileService.SaveTemplatesAsync(MissionTemplates.ToList());
+                StatusText = $"{importedTemplates.Count}개의 템플릿을 가져왔습니다.";
             }
             catch (Exception ex)
             {
-                StatusText = $"파일 가져오기 실패: {ex.Message}";
+                StatusText = $"템플릿 가져오기 실패: {ex.Message}";
+            }
+            finally
+            {
+                CommandManager.InvalidateRequerySuggested();
             }
         }
     }
 
-    private void ExecuteExportRoutes()
+    private async Task ExecuteExportTemplates(object? parameter)
     {
         var saveFileDialog = new SaveFileDialog
         {
-            Filter = "CSV 파일 (*.csv)|*.csv",
-            Title = "라우터 파일 내보내기",
-            FileName = $"mission_routes_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+            Filter = "JSON 파일 (*.json)|*.json",
+            Title = "템플릿 파일 내보내기",
+            FileName = $"templates_{DateTime.Now:yyyyMMdd}.json"
         };
 
         if (saveFileDialog.ShowDialog() == true)
         {
             try
             {
-                _fileService.ExportRoutes(Routes.ToList(), saveFileDialog.FileName);
-                StatusText = "라우터를 내보냈습니다.";
+                await _fileService.ExportTemplatesAsync(MissionTemplates.ToList(), saveFileDialog.FileName);
+                StatusText = "템플릿을 내보냈습니다.";
             }
             catch (Exception ex)
             {
-                StatusText = $"파일 내보내기 실패: {ex.Message}";
+                StatusText = $"템플릿 내보내기 실패: {ex.Message}";
             }
-        }
-    }
-
-    private void ExecuteEditRoute(object? parameter)
-    {
-        if (parameter is MissionRoute route)
-        {
-            RouteName = route.Name;
-            SelectedMissionType = route.MissionType;
-            
-            SelectedNodes.Clear();
-            for (int i = 0; i < route.Nodes.Count; i++)
+            finally
             {
-                SelectedNodes.Add(new RouteNode
-                {
-                    Index = i + 1,
-                    NodeName = route.Nodes[i]
-                });
-            }
-            
-            Routes.Remove(route);
-        }
-    }
-
-    private void ExecuteDeleteRoute(object? parameter)
-    {
-        if (parameter is MissionRoute route)
-        {
-            Routes.Remove(route);
-            
-            try
-            {
-                _fileService.SaveRoutes(Routes.ToList());
-                StatusText = "라우터가 삭제되었습니다.";
-            }
-            catch (Exception ex)
-            {
-                StatusText = $"라우터 삭제 실패: {ex.Message}";
+                CommandManager.InvalidateRequerySuggested();
             }
         }
     }
@@ -1153,16 +1448,88 @@ public class MainViewModel : ViewModelBase
 
     #region Private Methods
 
-    private void LoadInitialData()
+    private async Task LoadInitialDataAsync()
     {
         try
         {
-            var routes = _fileService.LoadRoutes();
-            Routes = new ObservableCollection<MissionRoute>(routes);
+            var templates = await _fileService.LoadTemplatesAsync();
+            MissionTemplates = new ObservableCollection<MissionTemplate>(templates);
         }
         catch (Exception ex)
         {
             StatusText = $"초기 데이터 로드 실패: {ex.Message}";
+        }
+    }
+
+    private async Task LoadFullMissionHistoryAsync()
+    {
+        StatusText = "전체 미션 조회 중...";
+
+        try
+        {
+            int maxMissionId = Missions
+                .Select(m => m.MissionIdSortValue)
+                .Where(id => id > int.MinValue)
+                .DefaultIfEmpty(int.MinValue)
+                .Max();
+
+            List<MissionInfo>? latestBatch = null;
+
+            if (maxMissionId == int.MinValue)
+            {
+                latestBatch = await _antApiService.GetAllMissionsAsync();
+                if (latestBatch.Any())
+                {
+                    maxMissionId = latestBatch
+                        .Select(m => m.MissionIdSortValue)
+                        .Where(id => id > int.MinValue)
+                        .DefaultIfEmpty(int.MinValue)
+                        .Max();
+                }
+            }
+
+            if (maxMissionId == int.MinValue)
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Missions.Clear();
+                    if (latestBatch != null)
+                    {
+                        foreach (var mission in latestBatch.OrderByDescending(m => m.MissionIdSortValue))
+                        {
+                            Missions.Add(mission);
+                        }
+                    }
+                    RefreshMissionFilter();
+                });
+
+                StatusText = latestBatch != null && latestBatch.Count > 0
+                    ? $"전체 범위 미션 ID를 계산할 수 없어 최근 {latestBatch.Count}건만 표시합니다"
+                    : "전체 미션이 없습니다";
+                return;
+            }
+
+            var fullMissions = await _antApiService.GetAllMissionsWithRangeAsync(maxMissionId);
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Missions.Clear();
+                foreach (var mission in fullMissions.OrderByDescending(m => m.MissionIdSortValue))
+                {
+                    Missions.Add(mission);
+                }
+                RefreshMissionFilter();
+            });
+
+            StatusText = $"전체 미션 {fullMissions.Count}건 조회 완료";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"전체 미션 조회 실패: {ex.Message}";
+        }
+        finally
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 
@@ -1171,6 +1538,7 @@ public class MainViewModel : ViewModelBase
         MissionView?.Refresh();
         ApplyMissionSort();
         UpdateMissionStatistics();
+        CommandManager.InvalidateRequerySuggested();
     }
 
     private void ApplyMissionSort()
@@ -1373,6 +1741,46 @@ public class MainViewModel : ViewModelBase
     private void RefreshAlarmFilter()
     {
         AlarmView?.Refresh();
+    }
+
+    private void OnMissionTemplatesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RefreshTemplateTitles();
+        CommandManager.InvalidateRequerySuggested();
+        OnPropertyChanged(nameof(TemplateView));
+    }
+
+    private void OnTemplateFilter(object sender, FilterEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedTemplateFilter) || _selectedTemplateFilter == "전체")
+        {
+            e.Accepted = true;
+            return;
+        }
+
+        if (e.Item is MissionTemplate template)
+        {
+            e.Accepted = template.Title == _selectedTemplateFilter;
+        }
+    }
+
+    private void RefreshTemplateTitles()
+    {
+        var titles = new HashSet<string> { "전체" };
+        foreach (var template in _missionTemplates)
+        {
+            if (!string.IsNullOrWhiteSpace(template.Title))
+            {
+                titles.Add(template.Title);
+            }
+        }
+
+        TemplateTitles = new ObservableCollection<string>(titles.OrderBy(t => t == "전체" ? "" : t));
+
+        if (string.IsNullOrWhiteSpace(_selectedTemplateFilter) || !titles.Contains(_selectedTemplateFilter))
+        {
+            SelectedTemplateFilter = "전체";
+        }
     }
 
     public void ApplyAlarmSort(IReadOnlyList<SortDescription> sortDescriptions)
@@ -1716,7 +2124,7 @@ public sealed class MissionFilterOption
             return true;
         }
 
-        return _navigationStates.Contains(state);
+        return _navigationStates?.Contains(state) ?? false;
     }
 }
 

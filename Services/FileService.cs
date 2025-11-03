@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using AntMissionManager.Models;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -11,6 +12,7 @@ public class FileService
 {
     private readonly string _dataDirectory;
     private readonly string _routesFileName = "mission_routes.csv";
+    private readonly string _templatesFileName = "mission_templates.json";
 
     public FileService()
     {
@@ -180,5 +182,82 @@ public class FileService
         public string MissionType { get; set; } = string.Empty;
         public string CreatedAt { get; set; } = string.Empty;
         public string IsActive { get; set; } = string.Empty;
+    }
+
+    // Mission Template Methods
+    public async Task<List<MissionTemplate>> LoadTemplatesAsync()
+    {
+        var filePath = Path.Combine(_dataDirectory, _templatesFileName);
+
+        if (!File.Exists(filePath))
+            return new List<MissionTemplate>();
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(filePath);
+            var templates = JsonSerializer.Deserialize<List<MissionTemplate>>(json);
+            return templates ?? new List<MissionTemplate>();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"템플릿 파일 로드 실패: {ex.Message}");
+        }
+    }
+
+    public async Task SaveTemplatesAsync(List<MissionTemplate> templates)
+    {
+        var filePath = Path.Combine(_dataDirectory, _templatesFileName);
+
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNameCaseInsensitive = true
+            };
+
+            var json = JsonSerializer.Serialize(templates, options);
+            await File.WriteAllTextAsync(filePath, json);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"템플릿 파일 저장 실패: {ex.Message}");
+        }
+    }
+
+    public async Task<List<MissionTemplate>> ImportTemplatesAsync(string filePath)
+    {
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException("파일을 찾을 수 없습니다.");
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(filePath);
+            var templates = JsonSerializer.Deserialize<List<MissionTemplate>>(json);
+            return templates ?? new List<MissionTemplate>();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"템플릿 가져오기 실패: {ex.Message}");
+        }
+    }
+
+    public async Task ExportTemplatesAsync(List<MissionTemplate> templates, string filePath)
+    {
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNameCaseInsensitive = true
+            };
+
+            var json = JsonSerializer.Serialize(templates, options);
+            await File.WriteAllTextAsync(filePath, json);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"템플릿 내보내기 실패: {ex.Message}");
+        }
     }
 }

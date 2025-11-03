@@ -69,7 +69,7 @@
                     
                     <Button x:Name="CancelButton"
                            Content="Cancel"
-                           Style="{StaticResource ModernSecondaryButton}"
+                           Style="{StaticResource ModernPrimaryButton}"
                            Width="100"
                            Height="40"
                            IsCancel="True"

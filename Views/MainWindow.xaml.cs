@@ -51,19 +51,27 @@ public partial class MainWindow : Window
         Application.Current.Shutdown();
     }
 
-    private void EditRoute_Click(object sender, RoutedEventArgs e)
+    private void EditTemplate_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.Tag is MissionRoute route && DataContext is MainViewModel vm)
+        if (sender is Button button && button.Tag is MissionTemplate template && DataContext is MainViewModel vm)
         {
-            vm.EditRouteCommand.Execute(route);
+            vm.EditTemplateCommand.Execute(template);
         }
     }
 
-    private void DeleteRoute_Click(object sender, RoutedEventArgs e)
+    private void DeleteTemplate_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.Tag is MissionRoute route && DataContext is MainViewModel vm)
+        if (sender is Button button && button.Tag is MissionTemplate template && DataContext is MainViewModel vm)
         {
-            vm.DeleteRouteCommand.Execute(route);
+            vm.DeleteTemplateCommand.Execute(template);
+        }
+    }
+
+    private void ExecuteTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is MissionTemplate template && DataContext is MainViewModel vm)
+        {
+            vm.ExecuteTemplateCommand.Execute(template);
         }
     }
 

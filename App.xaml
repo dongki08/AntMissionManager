@@ -9,6 +9,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <materialDesign:BundledTheme BaseTheme="Dark" PrimaryColor="Purple" SecondaryColor="Cyan" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.DatePicker.xaml" />
             </ResourceDictionary.MergedDictionaries>
             
             <!-- Dark Theme Color Palette -->
@@ -41,7 +42,7 @@
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Height" Value="40"/>
                 <Setter Property="Margin" Value="8,4"/>
-                <Setter Property="Padding" Value="24,0"/>
+                <Setter Property="Padding" Value="0,0"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="FontSize" Value="14"/>
                 <Setter Property="Cursor" Value="Hand"/>
@@ -169,7 +170,7 @@
                 </Setter>
                 <Setter Property="CornerRadius" Value="16"/>
                 <Setter Property="Margin" Value="8"/>
-                <Setter Property="Padding" Value="24"/>
+                <Setter Property="Padding" Value="18"/>
                 <Setter Property="BorderBrush">
                     <Setter.Value>
                         <SolidColorBrush Color="#475569" Opacity="0.5"/>
@@ -277,10 +278,16 @@
                 <Setter Property="VerticalAlignment" Value="Center"/>
                 <Setter Property="TextAlignment" Value="Center"/>
             </Style>
-            
+
+            <!-- DatePicker Styles -->
+            <Style x:Key="MissionDatePickerStyle" TargetType="DatePicker" BasedOn="{StaticResource MaterialDesignDatePicker}">
+                <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+                <Setter Property="materialDesign:HintAssist.Foreground" Value="{StaticResource MutedText}"/>
+            </Style>
+
             <!-- Legacy Compatibility -->
             <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernPrimaryButton}"/>
-            <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernSecondaryButton}"/>
+            <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernPrimaryButton}"/>
             <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource ModernCard}"/>
             
             <!-- Value Converters -->

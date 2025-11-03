@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
 using System.Text;
@@ -248,26 +249,56 @@ public class AntApiService
         }
     }
 
-    public async Task<List<MissionInfo>> GetAllMissionsAsync()
+    public Task<List<MissionInfo>> GetAllMissionsAsync()
+    {
+        return GetAllMissionsOrderedAsync(null);
+    }
+
+    public Task<List<MissionInfo>> GetAllMissionsWithRangeAsync(int maxMissionId)
+    {
+        if (maxMissionId <= int.MinValue)
+        {
+            return GetAllMissionsAsync();
+        }
+
+        return GetAllMissionsOrderedAsync($"[0,{maxMissionId}]");
+    }
+
+    private async Task<List<MissionInfo>> GetAllMissionsOrderedAsync(string? dataRange)
     {
         if (!IsConnected)
             throw new InvalidOperationException("ANT 서버에 연결되지 않았습니다.");
 
         try
         {
+            var queryParams = new List<string>
+            {
+                "dataorderby=[[\"createdat\",\"desc\"]]"
+            };
+
+            if (!string.IsNullOrWhiteSpace(dataRange))
+            {
+                queryParams.Add($"datarange={dataRange}");
+            }
+
             var url = $"{_baseUrl}{_apiVersion}/missions";
+            if (queryParams.Count > 0)
+            {
+                url += "?" + string.Join("&", queryParams);
+            }
+
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {_token}");
 
             var response = await _httpClient.SendAsync(request);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
                 var apiResponse = JsonConvert.DeserializeObject<dynamic>(content);
-                
+
                 var missions = new List<MissionInfo>();
-                
+
                 if (apiResponse?.payload?.missions != null)
                 {
                     foreach (var missionData in apiResponse.payload.missions)
@@ -300,7 +331,7 @@ public class AntApiService
                         missions.Add(mission);
                     }
                 }
-                
+
                 return missions;
             }
             else
@@ -316,13 +347,13 @@ public class AntApiService
 
     public async Task<bool> CreateMissionAsync(string missionType, string fromNode, string toNode, string? vehicle = null)
     {
-        if (!IsConnected) 
+        if (!IsConnected)
             throw new InvalidOperationException("ANT 서버에 연결되지 않았습니다.");
 
         try
         {
             var url = $"{_baseUrl}{_apiVersion}/missions";
-            
+
             var missionRequest = new
             {
                 missionrequest = new
@@ -350,18 +381,133 @@ public class AntApiService
 
             var json = JsonConvert.SerializeObject(missionRequest);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
+
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("Authorization", $"Bearer {_token}");
             request.Content = content;
 
             var response = await _httpClient.SendAsync(request);
-            
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
             throw new Exception($"미션 생성 오류: {ex.Message}");
+        }
+    }
+
+    public async Task<bool> CreateMissionFromTemplateAsync(MissionTemplate template)
+    {
+        if (!IsConnected)
+            throw new InvalidOperationException("ANT 서버에 연결되지 않았습니다.");
+
+        try
+        {
+            var url = $"{_baseUrl}{_apiVersion}/missions";
+
+            object parametersValue;
+
+            if (template.IsDynamic && (template.FromNodeConfig != null || template.ToNodeConfig != null))
+            {
+                // 다이나믹 미션: dynamicnodetypes 포함
+                var dynamicNodeTypes = new Dictionary<string, object>();
+
+                if (template.FromNodeConfig != null && template.FromNodeConfig.Vars.Count > 0)
+                {
+                    var fromVars = new Dictionary<string, string>();
+                    foreach (var v in template.FromNodeConfig.Vars)
+                    {
+                        if (!string.IsNullOrWhiteSpace(v.Key))
+                        {
+                            fromVars[v.Key] = v.Value;
+                        }
+                    }
+
+                    if (fromVars.Count > 0)
+                    {
+                        dynamicNodeTypes[$"{template.FromNode}_type"] = new
+                        {
+                            name = template.FromNodeConfig.NodeType,
+                            vars = fromVars
+                        };
+                    }
+                }
+
+                if (template.ToNodeConfig != null && template.ToNodeConfig.Vars.Count > 0)
+                {
+                    var toVars = new Dictionary<string, string>();
+                    foreach (var v in template.ToNodeConfig.Vars)
+                    {
+                        if (!string.IsNullOrWhiteSpace(v.Key))
+                        {
+                            toVars[v.Key] = v.Value;
+                        }
+                    }
+
+                    if (toVars.Count > 0)
+                    {
+                        dynamicNodeTypes[$"{template.ToNode}_type"] = new
+                        {
+                            name = template.ToNodeConfig.NodeType,
+                            vars = toVars
+                        };
+                    }
+                }
+
+                parametersValue = new
+                {
+                    payload = "Default Payload",
+                    vehicle = template.Vehicle,
+                    priority = template.Priority.ToString(),
+                    dynamicnodetypes = dynamicNodeTypes
+                };
+            }
+            else
+            {
+                // 무빙 미션 또는 픽앤드롭 미션
+                parametersValue = new
+                {
+                    payload = "Default Payload",
+                    vehicle = template.Vehicle,
+                    priority = template.Priority.ToString()
+                };
+            }
+
+            var missionRequest = new
+            {
+                missionrequest = new
+                {
+                    requestor = "admin",
+                    missiontype = template.MissionTypeNumber.ToString(),
+                    fromnode = template.FromNode,
+                    tonode = template.ToNode,
+                    cardinality = "1",
+                    priority = template.Priority.ToString(),
+                    deadline = DateTime.Now.ToString("o"),
+                    parameters = new
+                    {
+                        desc = "Mission extension",
+                        type = "org.json.JSONObject",
+                        name = "parameters",
+                        value = parametersValue
+                    }
+                }
+            };
+
+            var json = JsonConvert.SerializeObject(missionRequest);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.Add("Authorization", $"Bearer {_token}");
+            request.Content = content;
+
+            var response = await _httpClient.SendAsync(request);
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"미션 템플릿 생성 오류: {ex.Message}");
         }
     }
 

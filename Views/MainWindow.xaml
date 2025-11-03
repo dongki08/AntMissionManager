@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:views="clr-namespace:AntMissionManager.Views"
+        xmlns:models="clr-namespace:AntMissionManager.Models"
         Title="ANT Mission Manager"
         Height="900" Width="1400"
         WindowStartupLocation="CenterScreen"
@@ -200,90 +201,103 @@
                 <Grid Margin="0" Background="{StaticResource CardBackground}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="160"/>
+                        <RowDefinition Height="110"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     
                     <!-- Control Panel -->
                     <Border Grid.Row="0" Background="{StaticResource SurfaceBackground}" 
                            Padding="24" Margin="0,0,0,16">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Background="{StaticResource CardBackground}" 
-                                   Margin="0,0,12,0"
-                                   CornerRadius="8" 
-                                   BorderBrush="{StaticResource BorderBrush}"
-                                   BorderThickness="1">
-                                <ComboBox Background="Transparent"
-                                          BorderThickness="0"
-                                          Foreground="{StaticResource PrimaryText}"
-                                          Width="220"
-                                          Padding="12,8"
-                                          ItemsSource="{Binding MissionFilterOptions}"
-                                          SelectedItem="{Binding SelectedMissionFilter, Mode=TwoWay}"
-                                          DisplayMemberPath="DisplayName"
-                                          materialDesign:HintAssist.Hint="상태 필터"
-                                          materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
-                            </Border>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
 
-                            <Border Background="{StaticResource CardBackground}" 
-                                   Margin="0,0,12,0"
-                                   CornerRadius="8" 
-                                   BorderBrush="{StaticResource BorderBrush}"
-                                   BorderThickness="1">
+                            <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                <Border Background="{StaticResource CardBackground}" 
+                                       Margin="0,0,12,0"
+                                       CornerRadius="8" 
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
+                                    <ComboBox Background="Transparent"
+                                              BorderThickness="0"
+                                              Foreground="{StaticResource PrimaryText}"
+                                              Width="220"
+                                              Padding="12,8"
+                                              ItemsSource="{Binding MissionFilterOptions}"
+                                              SelectedItem="{Binding SelectedMissionFilter, Mode=TwoWay}"
+                                              DisplayMemberPath="DisplayName"
+                                              materialDesign:HintAssist.Hint="상태 필터"
+                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+
+                                <Border Background="{StaticResource CardBackground}" 
+                                       Margin="0,0,12,0"
+                                       CornerRadius="8" 
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
                                 <DatePicker SelectedDate="{Binding MissionFilterStart, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Style="{StaticResource MissionDatePickerStyle}"
                                             Background="Transparent"
                                             BorderThickness="0"
                                             Foreground="{StaticResource PrimaryText}"
-                                            Width="220"
+                                            Width="180"
                                             Margin="12,8"
-                                            materialDesign:HintAssist.Hint="조회 시작 시간"
-                                            materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
-                            </Border>
+                                                materialDesign:HintAssist.Hint="조회 시작 시간"
+                                                materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
 
-                            <Border Background="{StaticResource CardBackground}" 
-                                   CornerRadius="8" 
-                                   BorderBrush="{StaticResource BorderBrush}"
-                                   BorderThickness="1">
+                                <Border Background="{StaticResource CardBackground}" 
+                                       CornerRadius="8" 
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
                                 <DatePicker SelectedDate="{Binding MissionFilterEnd, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Style="{StaticResource MissionDatePickerStyle}"
                                             Background="Transparent"
                                             BorderThickness="0"
                                             Foreground="{StaticResource PrimaryText}"
-                                            Width="220"
+                                            Width="180"
                                             Margin="12,8"
-                                            materialDesign:HintAssist.Hint="조회 종료 시간"
-                                            materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
-                            </Border>
+                                                materialDesign:HintAssist.Hint="조회 종료 시간"
+                                                materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+                            </StackPanel>
 
-                            <Border Background="{StaticResource CardBackground}" 
-                                   Margin="0,0,12,0"
-                                   CornerRadius="8" 
-                                   BorderBrush="{StaticResource BorderBrush}"
-                                   BorderThickness="1">
-                                <Grid Margin="12,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Kind="Magnify" Width="18" Height="18"
-                                                           Foreground="{StaticResource MutedText}"
-                                                           VerticalAlignment="Center"/>
-                                    <TextBox Grid.Column="1"
-                                             Text="{Binding MissionSearchTerm, UpdateSourceTrigger=PropertyChanged}"
-                                             Background="Transparent"
-                                             BorderThickness="0"
-                                             Foreground="{StaticResource PrimaryText}"
-                                             Margin="8,0,0,0"
-                                             materialDesign:HintAssist.Hint="미션 검색"
-                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"
-                                             VerticalContentAlignment="Center"/>
-                                </Grid>
-                            </Border>
+                            <StackPanel Orientation="Horizontal" Grid.Column="3" HorizontalAlignment="Right">
+                                <Border Background="{StaticResource CardBackground}" 
+                                        Width="180"
+                                       CornerRadius="8" 
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1" Margin="0,0,12,0">
+                                    <Grid Margin="12,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <materialDesign:PackIcon Kind="Magnify" Width="18" Height="18"
+                                                               Foreground="{StaticResource MutedText}"
+                                                               VerticalAlignment="Center"/>
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding MissionSearchTerm, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 Foreground="{StaticResource PrimaryText}"
+                                                 Margin="8,0,0,0"
+                                                 materialDesign:HintAssist.Hint="미션 검색"
+                                                 materialDesign:HintAssist.Foreground="{StaticResource MutedText}"
+                                                 VerticalContentAlignment="Center"/>
+                                    </Grid>
+                                </Border>
 
-                            <Button Content="검색 초기화"
-                                   Style="{StaticResource ModernSecondaryButton}"
-                                   Margin="0,0,12,0"
-                                   Command="{Binding ClearMissionSearchCommand}"/>
-                        </StackPanel>
+                                <Button Content="검색 초기화"
+                                        Width="100"
+                                       Style="{StaticResource ModernPrimaryButton}"
+                                       Command="{Binding ClearMissionSearchCommand}"/>
+                            </StackPanel>
+                        </Grid>
                     </Border>
                     
                     <!-- Statistics Cards -->
@@ -299,145 +313,145 @@
                         <!-- Total Missions Card -->
                         <Border Grid.Column="0" Style="{StaticResource GlassCard}" Margin="0,0,8,0">
                             <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                                    <Border Background="{StaticResource PrimaryBrush}" 
-                                           Width="40" Height="40" 
-                                           CornerRadius="20">
-                                        <materialDesign:PackIcon Kind="FormatListBulleted" Width="20" Height="20" 
-                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                    <Border Background="{StaticResource PrimaryBrush}"
+                                            Width="40" Height="40"
+                                            CornerRadius="20">
+                                        <materialDesign:PackIcon Kind="FormatListBulleted" Width="20" Height="20"
+                                                                 Foreground="White" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Total" Style="{StaticResource CaptionText}"/>
-                                        <TextBlock Text="Missions" Style="{StaticResource CaptionText}" Margin="0,-2,0,0"/>
+                                        <TextBlock Text="Total" Style="{StaticResource CaptionText}" />
+                                        <TextBlock Text="Missions" Style="{StaticResource CaptionText}"
+                                                   Margin="0,-2,0,0" />
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Grid.Row="1" Text="{Binding TotalMissions}" 
-                                          FontSize="32" FontWeight="Bold" 
-                                          Foreground="{StaticResource PrimaryText}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Text="Total missions in system" 
-                                          Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalMissions}"
+                                           FontSize="32" FontWeight="Bold"
+                                           Foreground="{StaticResource PrimaryText}"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
                             </Grid>
                         </Border>
                         
                         <!-- Running Missions Card -->
                         <Border Grid.Column="1" Style="{StaticResource GlassCard}" Margin="8,0">
                             <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                                    <Border Background="{StaticResource SuccessBrush}" 
-                                           Width="40" Height="40" 
-                                           CornerRadius="20">
-                                        <materialDesign:PackIcon Kind="Play" Width="20" Height="20" 
-                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                    <Border Background="{StaticResource SuccessBrush}"
+                                            Width="40" Height="40"
+                                            CornerRadius="20">
+                                        <materialDesign:PackIcon Kind="Play" Width="20" Height="20"
+                                                                 Foreground="White" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Active" Style="{StaticResource CaptionText}"/>
-                                        <TextBlock Text="Running" Style="{StaticResource CaptionText}" Margin="0,-2,0,0"/>
+                                        <TextBlock Text="Active" Style="{StaticResource CaptionText}" />
+                                        <TextBlock Text="Running" Style="{StaticResource CaptionText}"
+                                                   Margin="0,-2,0,0" />
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Grid.Row="1" Text="{Binding RunningMissions}" 
-                                          FontSize="32" FontWeight="Bold" 
-                                          Foreground="{StaticResource SuccessBrush}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Text="Currently executing" 
-                                          Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RunningMissions}"
+                                           FontSize="32" FontWeight="Bold"
+                                           Foreground="{StaticResource PrimaryText}"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
                             </Grid>
                         </Border>
                         
                         <!-- Pending Missions Card -->
                         <Border Grid.Column="2" Style="{StaticResource GlassCard}" Margin="8,0">
                             <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                                    <Border Background="{StaticResource WarningBrush}" 
-                                           Width="40" Height="40" 
-                                           CornerRadius="20">
-                                        <materialDesign:PackIcon Kind="Clock" Width="20" Height="20" 
-                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                    <Border Background="{StaticResource WarningBrush}"
+                                            Width="40" Height="40"
+                                            CornerRadius="20">
+                                        <materialDesign:PackIcon Kind="Clock" Width="20" Height="20"
+                                                                 Foreground="White" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Pending" Style="{StaticResource CaptionText}"/>
-                                        <TextBlock Text="Waiting" Style="{StaticResource CaptionText}" Margin="0,-2,0,0"/>
+                                        <TextBlock Text="Pending" Style="{StaticResource CaptionText}" />
+                                        <TextBlock Text="Waiting" Style="{StaticResource CaptionText}"
+                                                   Margin="0,-2,0,0" />
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Grid.Row="1" Text="{Binding PendingMissions}" 
-                                          FontSize="32" FontWeight="Bold" 
-                                          Foreground="{StaticResource WarningBrush}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Text="Awaiting execution" 
-                                          Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding PendingMissions}"
+                                           FontSize="32" FontWeight="Bold"
+                                           Foreground="{StaticResource PrimaryText}"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
                             </Grid>
                         </Border>
                         
                         <!-- Completed Missions Card -->
                         <Border Grid.Column="3" Style="{StaticResource GlassCard}" Margin="8,0">
                             <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                                    <Border Background="{StaticResource AccentBrush}" 
-                                           Width="40" Height="40" 
-                                           CornerRadius="20">
-                                        <materialDesign:PackIcon Kind="CheckCircle" Width="20" Height="20" 
-                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                    <Border Background="{StaticResource AccentBrush}"
+                                            Width="40" Height="40"
+                                            CornerRadius="20">
+                                        <materialDesign:PackIcon Kind="CheckCircle" Width="20" Height="20"
+                                                                 Foreground="White" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Done" Style="{StaticResource CaptionText}"/>
-                                        <TextBlock Text="Completed" Style="{StaticResource CaptionText}" Margin="0,-2,0,0"/>
+                                        <TextBlock Text="Done" Style="{StaticResource CaptionText}" />
+                                        <TextBlock Text="Completed" Style="{StaticResource CaptionText}"
+                                                   Margin="0,-2,0,0" />
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Grid.Row="1" Text="{Binding CompletedMissions}" 
-                                          FontSize="32" FontWeight="Bold" 
-                                          Foreground="{StaticResource AccentBrush}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Text="Successfully finished" 
-                                          Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding CompletedMissions}"
+                                           FontSize="32" FontWeight="Bold"
+                                           Foreground="{StaticResource PrimaryText}"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
                         <!-- Cancelled Missions Card -->
                         <Border Grid.Column="4" Style="{StaticResource GlassCard}" Margin="8,0,0,0">
                             <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                                    <Border Background="{StaticResource ErrorBrush}" 
-                                           Width="40" Height="40" 
-                                           CornerRadius="20">
-                                        <materialDesign:PackIcon Kind="CloseCircle" Width="20" Height="20" 
-                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                    <Border Background="{StaticResource ErrorBrush}"
+                                            Width="40" Height="40"
+                                            CornerRadius="20">
+                                        <materialDesign:PackIcon Kind="CloseCircle" Width="20" Height="20"
+                                                                 Foreground="White" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Cancelled" Style="{StaticResource CaptionText}"/>
-                                        <TextBlock Text="Missions" Style="{StaticResource CaptionText}" Margin="0,-2,0,0"/>
+                                        <TextBlock Text="Cancelled" Style="{StaticResource CaptionText}" />
+                                        <TextBlock Text="Missions" Style="{StaticResource CaptionText}"
+                                                   Margin="0,-2,0,0" />
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Grid.Row="1" Text="{Binding CancelledMissions}" 
-                                          FontSize="32" FontWeight="Bold" 
-                                          Foreground="{StaticResource ErrorBrush}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Text="Cancelled or stopped" 
-                                          Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding CancelledMissions}"
+                                           FontSize="32" FontWeight="Bold"
+                                           Foreground="{StaticResource PrimaryText}"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
                             </Grid>
                         </Border>
                     </Grid>
@@ -544,248 +558,113 @@
                 
                 <Grid Margin="0" Background="{StaticResource CardBackground}">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="420"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="340"/>
                     </Grid.ColumnDefinitions>
+
                     
-                    <!-- Route Registration -->
-                    <Border Grid.Column="0" Style="{StaticResource GlassCard}" Margin="24,24,16,24">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,24">
-                                <Border Background="{StaticResource SuccessBrush}" 
-                                       Width="40" Height="40" 
-                                       CornerRadius="20"
-                                       Margin="0,0,12,0">
-                                    <materialDesign:PackIcon Kind="Plus" Width="20" Height="20" 
-                                                           Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Create Route" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
-                                    <TextBlock Text="Define mission routes" Style="{StaticResource CaptionText}" Margin="0"/>
-                                </StackPanel>
-                            </StackPanel>
-                            
-                            <!-- Route Name -->
-                            <Border Background="{StaticResource SurfaceBackground}" 
-                                   CornerRadius="12" 
-                                   Margin="0,0,0,16"
-                                   BorderBrush="{StaticResource BorderBrush}"
-                                   BorderThickness="1">
-                                <TextBox Text="{Binding RouteName}"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Foreground="{StaticResource PrimaryText}"
-                                        FontSize="14"
-                                        Padding="16,12"
-                                        materialDesign:HintAssist.Hint="Route Name"
-                                        materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
-                            </Border>
-                            
-                            <!-- Mission Type -->
-                            <Border Background="{StaticResource SurfaceBackground}" 
-                                   CornerRadius="12" 
-                                   Margin="0,0,0,20"
-                                   BorderBrush="{StaticResource BorderBrush}"
-                                   BorderThickness="1">
-                                <ComboBox SelectedValue="{Binding SelectedMissionType}"
-                                         Background="Transparent"
-                                         BorderThickness="0"
-                                         Foreground="{StaticResource PrimaryText}"
-                                         Padding="16,12"
-                                         materialDesign:HintAssist.Hint="Mission Type"
-                                         materialDesign:HintAssist.Foreground="{StaticResource MutedText}">
-                                    <ComboBoxItem Content="Transport" Tag="Transport" Foreground="{StaticResource PrimaryText}"/>
-                                    <ComboBoxItem Content="Move" Tag="Move" Foreground="{StaticResource PrimaryText}"/>
-                                    <ComboBoxItem Content="PickAndDrop" Tag="PickAndDrop" Foreground="{StaticResource PrimaryText}"/>
-                                </ComboBox>
-                            </Border>
-                            
-                            <!-- Nodes Section -->
-                            <StackPanel x:Name="NodesPanel">
-                                <TextBlock Text="Route Nodes" Style="{StaticResource BodyText}" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                                
-                                <Grid Margin="0,0,0,16">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    
-                                    <Border Grid.Column="0" Background="{StaticResource SurfaceBackground}" 
-                                           CornerRadius="12" 
-                                           BorderBrush="{StaticResource BorderBrush}"
-                                           BorderThickness="1">
-                                        <ComboBox SelectedValue="{Binding SelectedNode}"
-                                                 ItemsSource="{Binding AvailableNodes}"
-                                                 DisplayMemberPath="Name"
-                                                 SelectedValuePath="Name"
-                                                 Background="Transparent"
-                                                 BorderThickness="0"
-                                                 Foreground="{StaticResource PrimaryText}"
-                                                 Padding="16,12"
-                                                 materialDesign:HintAssist.Hint="Select Node"
-                                                 materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
-                                    </Border>
-                                    
-                                    <Button Grid.Column="1"
-                                           Content="Add"
-                                           Style="{StaticResource ModernAccentButton}"
-                                           Width="70"
-                                           Height="44"
-                                           Margin="12,0,0,0"
-                                           Command="{Binding AddNodeCommand}"/>
-                                </Grid>
-                                
-                                <Border Background="{StaticResource DarkBackground}" 
-                                       CornerRadius="12" 
-                                       BorderBrush="{StaticResource BorderBrush}"
-                                       BorderThickness="1"
-                                       Height="140"
-                                       Padding="12">
-                                    <ListBox ItemsSource="{Binding SelectedNodes}"
-                                            Background="Transparent"
-                                            BorderThickness="0">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="{StaticResource SurfaceBackground}" 
-                                                       CornerRadius="8" 
-                                                       Padding="12,8" 
-                                                       Margin="0,2">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        
-                                                        <Border Grid.Column="0" Background="{StaticResource PrimaryBrush}" 
-                                                               Width="24" Height="24" 
-                                                               CornerRadius="12"
-                                                               Margin="0,0,12,0">
-                                                            <TextBlock Text="{Binding Index}" 
-                                                                      Foreground="White" 
-                                                                      FontSize="12" FontWeight="Bold"
-                                                                      TextAlignment="Center"
-                                                                      VerticalAlignment="Center"/>
-                                                        </Border>
-                                                        
-                                                        <TextBlock Grid.Column="1" Text="{Binding NodeName}" 
-                                                                  Foreground="{StaticResource PrimaryText}"
-                                                                  VerticalAlignment="Center"
-                                                                  FontSize="13"/>
-                                                        
-                                                        <Button Grid.Column="2" 
-                                                               Width="24" Height="24"
-                                                               Background="Transparent"
-                                                               BorderThickness="0"
-                                                               Cursor="Hand"
-                                                               Command="{Binding DataContext.RemoveNodeCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                               CommandParameter="{Binding}">
-                                                            <materialDesign:PackIcon Kind="Close" Width="12" Height="12" Foreground="{StaticResource ErrorBrush}"/>
-                                                        </Button>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                </Border>
-                            </StackPanel>
-                            
-                            <!-- Action Buttons -->
-                            <StackPanel Orientation="Horizontal" Margin="0,24,0,16">
-                                <Button Content="Save Route" 
-                                       Style="{StaticResource ModernPrimaryButton}"
-                                       Command="{Binding SaveRouteCommand}"/>
-                                <Button Content="Clear" 
-                                       Style="{StaticResource ModernSecondaryButton}"
-                                       Command="{Binding ClearRouteCommand}"/>
-                            </StackPanel>
-                            
-                            <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16"/>
-                            
-                            <!-- Import/Export -->
-                            <StackPanel Orientation="Horizontal">
-                                <Button Content="Import" 
-                                       Style="{StaticResource ModernSecondaryButton}"
-                                       Command="{Binding ImportRoutesCommand}"/>
-                                <Button Content="Export" 
-                                       Style="{StaticResource ModernSecondaryButton}"
-                                       Command="{Binding ExportRoutesCommand}"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-                    
-                    <!-- Route List -->
-                    <Border Grid.Column="1" Style="{StaticResource GlassCard}" Margin="16,24,24,24">
+
+                    <!-- Template List -->
+                    <Border Grid.Column="0" Style="{StaticResource GlassCard}" Margin="16,24,12,24">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,20">
-                                <Border Background="{StaticResource AccentBrush}" 
-                                       Width="40" Height="40" 
-                                       CornerRadius="20"
-                                       Margin="0,0,12,0">
-                                    <materialDesign:PackIcon Kind="Routes" Width="20" Height="20" 
-                                                           Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Registered Routes" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
-                                    <TextBlock Text="Manage mission route configurations" Style="{StaticResource CaptionText}" Margin="0"/>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="300"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                    <Border Background="{StaticResource AccentBrush}"
+                                           Width="40" Height="40"
+                                           CornerRadius="20"
+                                           Margin="0,0,12,0">
+                                        <materialDesign:PackIcon Kind="FormatListBulleted" Width="20" Height="20"
+                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Mission Templates" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="Execute or manage mission templates" Style="{StaticResource CaptionText}" Margin="0"/>
+                                    </StackPanel>
                                 </StackPanel>
-                            </StackPanel>
-                            
-                            <Border Grid.Row="1" Background="{StaticResource DarkBackground}" 
-                                   CornerRadius="12" 
+
+                                <!-- Title Filter -->
+                                <Border Grid.Column="1" Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="12"
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
+                                    <ComboBox SelectedValue="{Binding SelectedTemplateFilter}"
+                                             ItemsSource="{Binding TemplateTitles}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="{StaticResource PrimaryText}"
+                                             Padding="12,8"
+                                             materialDesign:HintAssist.Hint="Filter by Title"
+                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+                            </Grid>
+
+                            <Border Grid.Row="1" Background="{StaticResource DarkBackground}"
+                                   CornerRadius="12"
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
-                                <DataGrid ItemsSource="{Binding Routes}"
-                                         Style="{StaticResource AppDataGridStyle}">
+                                <DataGrid ItemsSource="{Binding TemplateView}"
+                                         Style="{StaticResource AppDataGridStyle}"
+                                         RowHeight="45"
+                                         ColumnHeaderStyle="{StaticResource CenteredDataGridHeaderStyle}"
+                                         CellStyle="{StaticResource CenteredDataGridCellStyle}">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.5*"/>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding MissionType}" Width="*"/>
-                                        <DataGridTextColumn Header="Node Path" Binding="{Binding NodesPath}" Width="3*"/>
-                                        <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="0.8*"/>
-                                        <DataGridTextColumn Header="Created" Binding="{Binding CreatedAt}" Width="1.4*"/>
-                                        <DataGridTemplateColumn Header="Actions" Width="1.2*">
+                                        <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="1.2*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Type" Binding="{Binding TemplateTypeName}" Width="0.7*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Route" Binding="{Binding RouteDisplay}" Width="2*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Vehicle" Binding="{Binding Vehicle}" Width="0.8*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="0.65*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Description" Binding="{Binding PriorityDescription}" Width="1.5*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTemplateColumn Header="Actions" Width="1.5*">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Orientation="Horizontal">
-                                                        <Button Content="Edit" 
-                                                               Style="{StaticResource ModernSecondaryButton}"
+                                                        <Button Content="Execute"
+                                                               Style="{StaticResource ModernPrimaryButton}"
                                                                Height="28"
-                                                               Padding="12,4"
+                                                               Padding="0,0"
                                                                FontSize="11"
                                                                Margin="0,0,4,0"
-                                                               Click="EditRoute_Click"
+                                                               Click="ExecuteTemplate_Click"
                                                                Tag="{Binding}"/>
-                                                        <Button Content="Delete" 
+                                                        <Button Content="Edit"
+                                                               Style="{StaticResource ModernPrimaryButton}"
+                                                               Height="28"
+                                                               Padding="10,2"
+                                                               FontSize="11"
+                                                               Margin="0,0,4,0"
+                                                               Click="EditTemplate_Click"
+                                                               Tag="{Binding}"/>
+                                                        <Button Content="Delete"
                                                                Background="{StaticResource ErrorBrush}"
                                                                Foreground="White"
                                                                BorderThickness="0"
                                                                Height="28"
-                                                               Padding="12,4"
+                                                               Padding="10,2"
                                                                FontSize="11"
                                                                Cursor="Hand"
-                                                               Click="DeleteRoute_Click"
+                                                               Click="DeleteTemplate_Click"
                                                                Tag="{Binding}">
                                                             <Button.Style>
                                                                 <Style TargetType="Button">
                                                                     <Setter Property="Template">
                                                                         <Setter.Value>
                                                                             <ControlTemplate TargetType="Button">
-                                                                                <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                                                                                <Border Background="{TemplateBinding Background}" CornerRadius="4">
                                                                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                                                 </Border>
                                                                             </ControlTemplate>
                                                                         </Setter.Value>
                                                                     </Setter>
-                                                                    <Style.Triggers>
-                                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                                            <Setter Property="Background" Value="#DC2626"/>
-                                                                        </Trigger>
-                                                                    </Style.Triggers>
                                                                 </Style>
                                                             </Button.Style>
                                                         </Button>
@@ -797,6 +676,249 @@
                                 </DataGrid>
                             </Border>
                         </Grid>
+                    </Border>
+                    
+                    <!-- Template Creation -->
+                    <Border Grid.Column="1" Style="{StaticResource GlassCard}" Margin="12,24,16,24">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,24">
+                                    <Border Background="{StaticResource SuccessBrush}"
+                                           Width="40" Height="40"
+                                           CornerRadius="20"
+                                           Margin="0,0,12,0">
+                                        <materialDesign:PackIcon Kind="Plus" Width="20" Height="20"
+                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="미션 등록" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="Define mission" Style="{StaticResource CaptionText}" Margin="0"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Template Name -->
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="10"
+                                       Margin="0,0,0,14"
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
+                                    <TextBox Text="{Binding TemplateTitle}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="{StaticResource PrimaryText}"
+                                            FontSize="14"
+                                            Padding="16,12"
+                                            materialDesign:HintAssist.Hint="Title"
+                                            materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+
+                                <!-- Mission Type -->
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="10"
+                                       Margin="0,0,0,12"
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
+                                    <ComboBox SelectedValue="{Binding SelectedTemplateType}"
+                                             SelectedValuePath="Tag"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="{StaticResource PrimaryText}"
+                                             Padding="16,12"
+                                             materialDesign:HintAssist.Hint="Mission Type"
+                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}">
+                                        <ComboBoxItem Content="무빙 미션" Tag="{x:Static models:MissionTemplateType.Moving}" Foreground="{StaticResource PrimaryText}"/>
+                                        <ComboBoxItem Content="픽앤드롭 미션" Tag="{x:Static models:MissionTemplateType.PickAndDrop}" Foreground="{StaticResource PrimaryText}"/>
+                                        <ComboBoxItem Content="다이나믹 미션" Tag="{x:Static models:MissionTemplateType.Dynamic}" Foreground="{StaticResource PrimaryText}"/>
+                                    </ComboBox>
+                                </Border>
+
+                                <!-- From Node (Hidden for Moving Mission) -->
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="10"
+                                       Margin="0,0,0,12"
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1"
+                                       Visibility="{Binding IsNotMovingMission, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <ComboBox SelectedValue="{Binding FromNode}"
+                                             ItemsSource="{Binding AvailableNodes}"
+                                             DisplayMemberPath="Name"
+                                             SelectedValuePath="Name"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="{StaticResource PrimaryText}"
+                                             Padding="16,12"
+                                             materialDesign:HintAssist.Hint="From Node"
+                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+
+                                <!-- To Node -->
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="10"
+                                       Margin="0,0,0,12"
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
+                                    <ComboBox SelectedValue="{Binding ToNode}"
+                                             ItemsSource="{Binding AvailableNodes}"
+                                             DisplayMemberPath="Name"
+                                             SelectedValuePath="Name"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="{StaticResource PrimaryText}"
+                                             Padding="16,12"
+                                             materialDesign:HintAssist.Hint="To Node"
+                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+
+                                <!-- Vehicle -->
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="10"
+                                       Margin="0,0,0,12"
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
+                                    <ComboBox SelectedValue="{Binding TemplateVehicle}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="{StaticResource PrimaryText}"
+                                             Padding="16,12"
+                                             IsEditable="True"
+                                             IsTextSearchEnabled="True"
+                                             ItemsSource="{Binding Vehicles}"
+                                             DisplayMemberPath="Name"
+                                             SelectedValuePath="Name"
+                                             materialDesign:HintAssist.Hint="Vehicle (Optional - Leave blank for none)"
+                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+
+                                <!-- Priority -->
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="10"
+                                       Margin="0,0,0,12"
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
+                                    <TextBox Text="{Binding TemplatePriority}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="{StaticResource PrimaryText}"
+                                            FontSize="14"
+                                            Padding="16,12"
+                                            materialDesign:HintAssist.Hint="Priority"
+                                            materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+
+                                <!-- Priority Description -->
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="10"
+                                       Margin="0,0,0,16"
+                                       BorderBrush="{StaticResource BorderBrush}"
+                                       BorderThickness="1">
+                                    <TextBox Text="{Binding TemplatePriorityDescription}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="{StaticResource PrimaryText}"
+                                            FontSize="14"
+                                            Padding="16,12"
+                                            materialDesign:HintAssist.Hint="Priority Description (Optional)"
+                                            materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                </Border>
+
+                                <!-- Dynamic Mission Configuration (Visible only for Dynamic Mission) -->
+                                <StackPanel Visibility="{Binding IsDynamicMission, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="Dynamic Node Configuration" Style="{StaticResource BodyText}" FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+                                    <!-- From Node Config -->
+                                    <TextBlock Text="From Node Vars" Style="{StaticResource CaptionText}" Margin="0,0,0,8"/>
+                                    <Border Background="{StaticResource DarkBackground}"
+                                           CornerRadius="12"
+                                           BorderBrush="{StaticResource BorderBrush}"
+                                           BorderThickness="1"
+                                           Margin="0,0,0,12"
+                                           Padding="12">
+                                        <StackPanel>
+                                            <ItemsControl ItemsSource="{Binding FromNodeVars}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBox Grid.Column="0" Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                                                    Margin="0,0,4,0"
+                                                                    materialDesign:HintAssist.Hint="Key"/>
+                                                            <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                    Margin="4,0,4,0"
+                                                                    materialDesign:HintAssist.Hint="Value"/>
+                                                            <Button Grid.Column="2" Content="X" Width="30" Height="30"
+                                                                   Command="{Binding DataContext.RemoveFromVarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                   CommandParameter="{Binding}"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Button Content="Add Var" Command="{Binding AddFromVarCommand}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- To Node Config -->
+                                    <TextBlock Text="To Node Vars" Style="{StaticResource CaptionText}" Margin="0,0,0,8"/>
+                                    <Border Background="{StaticResource DarkBackground}"
+                                           CornerRadius="12"
+                                           BorderBrush="{StaticResource BorderBrush}"
+                                           BorderThickness="1"
+                                           Margin="0,0,0,20"
+                                           Padding="12">
+                                        <StackPanel>
+                                            <ItemsControl ItemsSource="{Binding ToNodeVars}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBox Grid.Column="0" Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                                                    Margin="0,0,4,0"
+                                                                    materialDesign:HintAssist.Hint="Key"/>
+                                                            <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                    Margin="4,0,4,0"
+                                                                    materialDesign:HintAssist.Hint="Value"/>
+                                                            <Button Grid.Column="2" Content="X" Width="30" Height="30"
+                                                                   Command="{Binding DataContext.RemoveToVarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                   CommandParameter="{Binding}"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Button Content="Add Var" Command="{Binding AddToVarCommand}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Action Buttons -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                    <Button Content="Save Template"
+                                           Style="{StaticResource ModernPrimaryButton}"
+                                           Command="{Binding SaveTemplateCommand}"/>
+                                    <Button Content="Clear"
+                                           Style="{StaticResource ModernPrimaryButton}"
+                                           Command="{Binding ClearTemplateCommand}"/>
+                                </StackPanel>
+
+                                <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16"/>
+
+                                <!-- Import/Export -->
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Import"
+                                           Style="{StaticResource ModernPrimaryButton}"
+                                           Command="{Binding ImportTemplatesCommand}"/>
+                                    <Button Content="Export"
+                                           Style="{StaticResource ModernPrimaryButton}"
+                                           Command="{Binding ExportTemplatesCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
                     </Border>
                 </Grid>
             </TabItem>
@@ -865,7 +987,7 @@
                                        Margin="12,0,0,0"/>
                                 
                                 <Button Content="Extract Vehicle" 
-                                       Style="{StaticResource ModernSecondaryButton}"
+                                       Style="{StaticResource ModernPrimaryButton}"
                                        Command="{Binding ExtractVehicleCommand}"/>
                                 
                                 <Button Content="Refresh Vehicles" 
@@ -1089,7 +1211,7 @@
                                     </Border>
 
                                     <Button Content="초기화"
-                                           Style="{StaticResource ModernSecondaryButton}"
+                                           Style="{StaticResource ModernPrimaryButton}"
                                            Command="{Binding ClearAlarmSearchCommand}"/>
                                 </StackPanel>
                             </Grid>
