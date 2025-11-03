@@ -33,11 +33,13 @@ public class MainViewModel : ViewModelBase
     private int _runningMissions;
     private int _pendingMissions;
     private int _completedMissions;
+    private int _cancelledMissions;
     private readonly CollectionViewSource _missionViewSource;
     private ObservableCollection<MissionFilterOption> _missionFilterOptions = new();
     private MissionFilterOption? _selectedMissionFilter;
     private DateTime? _missionFilterStart;
     private DateTime? _missionFilterEnd;
+    private string _missionSearchTerm = string.Empty;
     private const int CompletedMissionDefaultOffsetMinutes = 3;
     private string _missionSortProperty = nameof(MissionInfo.MissionIdSortValue);
     private ListSortDirection _missionSortDirection = ListSortDirection.Descending;
@@ -322,6 +324,19 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    public string MissionSearchTerm
+    {
+        get => _missionSearchTerm;
+        set
+        {
+            if (SetProperty(ref _missionSearchTerm, value))
+            {
+                RefreshMissionFilter();
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
     public int TotalMissions
     {
         get => _totalMissions;
@@ -344,6 +359,12 @@ public class MainViewModel : ViewModelBase
     {
         get => _completedMissions;
         set => SetProperty(ref _completedMissions, value);
+    }
+
+    public int CancelledMissions
+    {
+        get => _cancelledMissions;
+        set => SetProperty(ref _cancelledMissions, value);
     }
 
     // Mission Router
@@ -528,12 +549,13 @@ public class MainViewModel : ViewModelBase
 
     public ICommand RefreshAlarmsCommand { get; private set; } = null!;
     public ICommand ClearAlarmSearchCommand { get; private set; } = null!;
+    public ICommand ClearMissionSearchCommand { get; private set; } = null!;
 
     private void InitializeCommands()
     {
         LogoutCommand = new RelayCommand(ExecuteLogout);
         RefreshMissionsCommand = new AsyncRelayCommand(ExecuteRefreshMissions);
-        CancelMissionCommand = new RelayCommand(ExecuteCancelMission);
+        CancelMissionCommand = new AsyncRelayCommand(ExecuteCancelMissionAsync, CanExecuteCancelMission);
         
         AddNodeCommand = new RelayCommand(ExecuteAddNode, () => !string.IsNullOrEmpty(SelectedNode));
         RemoveNodeCommand = new RelayCommand(ExecuteRemoveNode);
@@ -552,6 +574,7 @@ public class MainViewModel : ViewModelBase
 
     RefreshAlarmsCommand = new AsyncRelayCommand(ExecuteRefreshAlarms);
     ClearAlarmSearchCommand = new RelayCommand(_ => ClearAlarmSearch(), _ => CanClearAlarmSearch());
+    ClearMissionSearchCommand = new RelayCommand(_ => ClearMissionSearch(), _ => CanClearMissionSearch());
 }
 
     #endregion
@@ -645,12 +668,63 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private void ExecuteCancelMission(object? parameter)
+    private bool CanExecuteCancelMission(object? parameter)
     {
-        if (parameter is string missionId)
+        if (parameter is not string missionId)
         {
-            // TODO: 미션 취소 로직 구현
-            StatusText = $"미션 {missionId} 취소 요청됨";
+            return false;
+        }
+
+        var mission = Missions.FirstOrDefault(m => m.MissionId == missionId);
+        return mission?.CanCancel == true && _antApiService.IsConnected;
+    }
+
+    private async Task ExecuteCancelMissionAsync(object? parameter)
+    {
+        if (parameter is not string missionId)
+        {
+            return;
+        }
+
+        var mission = Missions.FirstOrDefault(m => m.MissionId == missionId);
+        if (mission?.CanCancel != true)
+        {
+            return;
+        }
+
+        var confirm = CommonDialogWindow.ShowDialog(
+            message: $"미션 {missionId}을(를) 취소하시겠습니까?",
+            title: "미션 취소 확인",
+            type: CommonDialogWindow.DialogType.Question);
+
+        if (!confirm)
+        {
+            return;
+        }
+
+        StatusText = $"미션 {missionId} 취소 중...";
+
+        try
+        {
+            var cancelled = await _antApiService.CancelMissionAsync(missionId);
+
+            if (cancelled)
+            {
+                StatusText = $"미션 {missionId} 취소 완료";
+                await RefreshMissionsAsync(isAutoRefresh: true);
+            }
+            else
+            {
+                StatusText = $"미션 {missionId} 취소 실패";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"미션 {missionId} 취소 오류: {ex.Message}";
+        }
+        finally
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 
@@ -1166,6 +1240,29 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        if (!string.IsNullOrWhiteSpace(MissionSearchTerm))
+        {
+            var term = MissionSearchTerm.Trim();
+            var comparison = StringComparison.OrdinalIgnoreCase;
+
+            bool Matches(string? source) => !string.IsNullOrEmpty(source) && source.IndexOf(term, comparison) >= 0;
+
+            if (!Matches(mission.MissionId)
+                && !Matches(mission.MissionType)
+                && !Matches(mission.FromNode)
+                && !Matches(mission.ToNode)
+                && !Matches(mission.AssignedVehicle)
+                && !Matches(mission.NavigationStateText)
+                && !Matches(mission.TransportStateText)
+                && !Matches(mission.CreatedAtDisplay)
+                && !Matches(mission.Priority.ToString())
+                && !Matches(mission.MissionIdSortValue.ToString()))
+            {
+                e.Accepted = false;
+                return;
+            }
+        }
+
         var timestamp = GetMissionTimestamp(mission);
 
         if (!(filter?.IsDefault ?? false))
@@ -1242,6 +1339,7 @@ public class MainViewModel : ViewModelBase
         RunningMissions = missionList.Count(m => m.NavigationState == 3); // Started
         PendingMissions = missionList.Count(m => m.NavigationState == 0 || m.NavigationState == 1); // Received or Accepted
         CompletedMissions = missionList.Count(m => m.NavigationState == 4); // Completed
+        CancelledMissions = missionList.Count(m => m.NavigationState == 5); // Cancelled
     }
 
     private void ClearAlarmSearch()
@@ -1260,6 +1358,16 @@ public class MainViewModel : ViewModelBase
         var defaultOption = AlarmSearchColumns.FirstOrDefault();
         var isDefaultColumn = defaultOption == null || string.Equals(SelectedAlarmSearchColumn, defaultOption.Key, StringComparison.Ordinal);
         return !string.IsNullOrWhiteSpace(AlarmSearchTerm) || !isDefaultColumn;
+    }
+
+    private void ClearMissionSearch()
+    {
+        MissionSearchTerm = string.Empty;
+    }
+
+    private bool CanClearMissionSearch()
+    {
+        return !string.IsNullOrWhiteSpace(MissionSearchTerm);
     }
 
     private void RefreshAlarmFilter()

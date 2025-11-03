@@ -253,12 +253,43 @@
                                             materialDesign:HintAssist.Hint="조회 종료 시간"
                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                             </Border>
+
+                            <Border Background="{StaticResource CardBackground}" 
+                                   Margin="0,0,12,0"
+                                   CornerRadius="8" 
+                                   BorderBrush="{StaticResource BorderBrush}"
+                                   BorderThickness="1">
+                                <Grid Margin="12,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Kind="Magnify" Width="18" Height="18"
+                                                           Foreground="{StaticResource MutedText}"
+                                                           VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="1"
+                                             Text="{Binding MissionSearchTerm, UpdateSourceTrigger=PropertyChanged}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="{StaticResource PrimaryText}"
+                                             Margin="8,0,0,0"
+                                             materialDesign:HintAssist.Hint="미션 검색"
+                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"
+                                             VerticalContentAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
+                            <Button Content="검색 초기화"
+                                   Style="{StaticResource ModernSecondaryButton}"
+                                   Margin="0,0,12,0"
+                                   Command="{Binding ClearMissionSearchCommand}"/>
                         </StackPanel>
                     </Border>
                     
                     <!-- Statistics Cards -->
                     <Grid Grid.Row="1" Margin="24,0,24,16">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
@@ -353,7 +384,7 @@
                         </Border>
                         
                         <!-- Completed Missions Card -->
-                        <Border Grid.Column="3" Style="{StaticResource GlassCard}" Margin="8,0,0,0">
+                        <Border Grid.Column="3" Style="{StaticResource GlassCard}" Margin="8,0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -377,6 +408,35 @@
                                           Foreground="{StaticResource AccentBrush}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Row="2" Text="Successfully finished" 
+                                          Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Cancelled Missions Card -->
+                        <Border Grid.Column="4" Style="{StaticResource GlassCard}" Margin="8,0,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                                    <Border Background="{StaticResource ErrorBrush}" 
+                                           Width="40" Height="40" 
+                                           CornerRadius="20">
+                                        <materialDesign:PackIcon Kind="CloseCircle" Width="20" Height="20" 
+                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Cancelled" Style="{StaticResource CaptionText}"/>
+                                        <TextBlock Text="Missions" Style="{StaticResource CaptionText}" Margin="0,-2,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Grid.Row="1" Text="{Binding CancelledMissions}" 
+                                          FontSize="32" FontWeight="Bold" 
+                                          Foreground="{StaticResource ErrorBrush}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Row="2" Text="Cancelled or stopped" 
                                           Style="{StaticResource CaptionText}" HorizontalAlignment="Center"/>
                             </Grid>
                         </Border>

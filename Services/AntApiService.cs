@@ -250,7 +250,7 @@ public class AntApiService
 
     public async Task<List<MissionInfo>> GetAllMissionsAsync()
     {
-        if (!IsConnected) 
+        if (!IsConnected)
             throw new InvalidOperationException("ANT 서버에 연결되지 않았습니다.");
 
         try
