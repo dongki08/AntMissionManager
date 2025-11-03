@@ -33,6 +33,14 @@ public class MainViewModel : ViewModelBase
     private int _runningMissions;
     private int _pendingMissions;
     private int _completedMissions;
+    private readonly CollectionViewSource _missionViewSource;
+    private ObservableCollection<MissionFilterOption> _missionFilterOptions = new();
+    private MissionFilterOption? _selectedMissionFilter;
+    private DateTime? _missionFilterStart;
+    private DateTime? _missionFilterEnd;
+    private const int CompletedMissionDefaultOffsetMinutes = 3;
+    private string _missionSortProperty = nameof(MissionInfo.MissionIdSortValue);
+    private ListSortDirection _missionSortDirection = ListSortDirection.Descending;
 
     // Mission Router Properties
     private ObservableCollection<MissionRoute> _routes = new();
@@ -43,9 +51,12 @@ public class MainViewModel : ViewModelBase
 
     // Vehicle Management Properties
     private ObservableCollection<Vehicle> _vehicles = new();
+    private readonly CollectionViewSource _vehicleViewSource;
     private string _selectedVehicle = string.Empty;
     private string _selectedInsertNode = string.Empty;
     private ObservableCollection<NodeInfo> _availableNodes = new();
+    private string _vehicleSortProperty = nameof(Vehicle.Name);
+    private ListSortDirection _vehicleSortDirection = ListSortDirection.Descending;
 
     // Map View Properties
     private List<MapData> _mapData = new();
@@ -68,6 +79,26 @@ public class MainViewModel : ViewModelBase
     {
         _antApiService = AntApiService.Instance;
         _fileService = new FileService();
+
+        _missionViewSource = new CollectionViewSource { Source = _missions };
+        _missionViewSource.Filter += OnMissionFilter;
+        _missionViewSource.SortDescriptions.Add(new SortDescription(nameof(MissionInfo.MissionIdSortValue), ListSortDirection.Descending));
+        ApplyMissionSort();
+
+        _vehicleViewSource = new CollectionViewSource { Source = _vehicles };
+        ApplyVehicleSort(_vehicleSortProperty, _vehicleSortDirection, updateState: false);
+
+        MissionFilterOptions = new ObservableCollection<MissionFilterOption>(new[]
+        {
+            new MissionFilterOption("기본 (대기/진행/완료)", new[] { 1, 3, 4 }, isDefault: true),
+            new MissionFilterOption("전체", null),
+            new MissionFilterOption("수신 (0)", new[] { 0 }),
+            new MissionFilterOption("대기 (1)", new[] { 1 }),
+            new MissionFilterOption("진행 (3)", new[] { 3 }),
+            new MissionFilterOption("완료 (4)", new[] { 4 }),
+            new MissionFilterOption("취소 (5)", new[] { 5 })
+        });
+        SelectedMissionFilter = MissionFilterOptions.FirstOrDefault();
 
         _alarmViewSource = new CollectionViewSource { Source = _alarms };
         _alarmViewSource.Filter += OnAlarmFilter;
@@ -217,6 +248,80 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _missions, value);
     }
 
+    public ICollectionView MissionView => _missionViewSource.View;
+
+    public string MissionSortProperty => _missionSortProperty;
+
+    public ListSortDirection MissionSortDirection => _missionSortDirection;
+
+    public ObservableCollection<MissionFilterOption> MissionFilterOptions
+    {
+        get => _missionFilterOptions;
+        private set => SetProperty(ref _missionFilterOptions, value);
+    }
+
+    public MissionFilterOption? SelectedMissionFilter
+    {
+        get => _selectedMissionFilter;
+        set
+        {
+            if (!SetProperty(ref _selectedMissionFilter, value))
+            {
+                return;
+            }
+
+            if (value?.IsDefault ?? false)
+            {
+                var anyChanged = false;
+
+                if (MissionFilterStart.HasValue)
+                {
+                    MissionFilterStart = null;
+                    anyChanged = true;
+                }
+
+                if (MissionFilterEnd.HasValue)
+                {
+                    MissionFilterEnd = null;
+                    anyChanged = true;
+                }
+
+                if (!anyChanged)
+                {
+                    RefreshMissionFilter();
+                }
+            }
+            else
+            {
+                RefreshMissionFilter();
+            }
+        }
+    }
+
+    public DateTime? MissionFilterStart
+    {
+        get => _missionFilterStart;
+        set
+        {
+            if (SetProperty(ref _missionFilterStart, value))
+            {
+                RefreshMissionFilter();
+            }
+        }
+    }
+
+    public DateTime? MissionFilterEnd
+    {
+        get => _missionFilterEnd;
+        set
+        {
+            if (SetProperty(ref _missionFilterEnd, value))
+            {
+                RefreshMissionFilter();
+            }
+        }
+    }
+
     public int TotalMissions
     {
         get => _totalMissions;
@@ -276,8 +381,21 @@ public class MainViewModel : ViewModelBase
     public ObservableCollection<Vehicle> Vehicles
     {
         get => _vehicles;
-        set => SetProperty(ref _vehicles, value);
+        set
+        {
+            if (SetProperty(ref _vehicles, value))
+            {
+                _vehicleViewSource.Source = _vehicles;
+                ApplyVehicleSort(_vehicleSortProperty, _vehicleSortDirection, updateState: false);
+            }
+        }
     }
+
+    public ICollectionView VehiclesView => _vehicleViewSource.View;
+
+    public string VehicleSortProperty => _vehicleSortProperty;
+
+    public ListSortDirection VehicleSortDirection => _vehicleSortDirection;
 
     public string SelectedVehicle
     {
@@ -506,7 +624,7 @@ public class MainViewModel : ViewModelBase
                     }
                 }
 
-                UpdateMissionStatistics();
+                RefreshMissionFilter();
             });
 
             if (!isAutoRefresh)
@@ -781,6 +899,8 @@ public class MainViewModel : ViewModelBase
                         Vehicles.Add(newVehicle);
                     }
                 }
+
+                ApplyVehicleSort(_vehicleSortProperty, _vehicleSortDirection, updateState: false);
             });
 
             if (!isAutoRefresh)
@@ -972,12 +1092,156 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    private void RefreshMissionFilter()
+    {
+        MissionView?.Refresh();
+        ApplyMissionSort();
+        UpdateMissionStatistics();
+    }
+
+    private void ApplyMissionSort()
+    {
+        ApplyMissionSort(_missionSortProperty, _missionSortDirection, updateState: false);
+    }
+
+    public void ApplyMissionColumnSort(string propertyName, ListSortDirection direction)
+    {
+        ApplyMissionSort(propertyName, direction, updateState: true);
+    }
+
+    private void ApplyMissionSort(string propertyName, ListSortDirection direction, bool updateState)
+    {
+        if (string.IsNullOrWhiteSpace(propertyName))
+        {
+            return;
+        }
+
+        if (updateState)
+        {
+            _missionSortProperty = propertyName;
+            _missionSortDirection = direction;
+        }
+
+        var sortDescriptions = _missionViewSource.SortDescriptions;
+        sortDescriptions.Clear();
+        sortDescriptions.Add(new SortDescription(propertyName, direction));
+    }
+
+    public void ApplyVehicleColumnSort(string propertyName, ListSortDirection direction)
+    {
+        ApplyVehicleSort(propertyName, direction, updateState: true);
+    }
+
+    private void ApplyVehicleSort(string propertyName, ListSortDirection direction, bool updateState)
+    {
+        if (string.IsNullOrWhiteSpace(propertyName))
+        {
+            return;
+        }
+
+        if (updateState)
+        {
+            _vehicleSortProperty = propertyName;
+            _vehicleSortDirection = direction;
+        }
+
+        var sortDescriptions = _vehicleViewSource.SortDescriptions;
+        sortDescriptions.Clear();
+        sortDescriptions.Add(new SortDescription(propertyName, direction));
+        _vehicleViewSource.View?.Refresh();
+    }
+
+    private void OnMissionFilter(object? sender, FilterEventArgs e)
+    {
+        if (e.Item is not MissionInfo mission)
+        {
+            e.Accepted = false;
+            return;
+        }
+
+        var filter = SelectedMissionFilter ?? MissionFilterOptions.FirstOrDefault();
+        if (filter != null && !filter.ContainsState(mission.NavigationState))
+        {
+            e.Accepted = false;
+            return;
+        }
+
+        var timestamp = GetMissionTimestamp(mission);
+
+        if (!(filter?.IsDefault ?? false))
+        {
+            var startBoundary = GetMissionFilterStartBoundary();
+            var endBoundary = GetMissionFilterEndBoundary();
+
+            if (endBoundary < startBoundary)
+            {
+                (startBoundary, endBoundary) = (endBoundary, startBoundary);
+            }
+
+            if (timestamp < startBoundary || timestamp > endBoundary)
+            {
+                e.Accepted = false;
+                return;
+            }
+        }
+        else
+        {
+            var cutoff = DateTime.Now.AddMinutes(-CompletedMissionDefaultOffsetMinutes);
+            if (mission.NavigationState == 4 && timestamp < cutoff)
+            {
+                e.Accepted = false;
+                return;
+            }
+        }
+
+        e.Accepted = true;
+    }
+
+    private DateTime GetMissionFilterStartBoundary()
+    {
+        if (!MissionFilterStart.HasValue)
+        {
+            return DateTime.MinValue;
+        }
+
+        var value = MissionFilterStart.Value;
+        return value.TimeOfDay == TimeSpan.Zero ? value.Date : value;
+    }
+
+    private DateTime GetMissionFilterEndBoundary()
+    {
+        if (!MissionFilterEnd.HasValue)
+        {
+            return DateTime.MaxValue;
+        }
+
+        var value = MissionFilterEnd.Value;
+        if (value.TimeOfDay == TimeSpan.Zero)
+        {
+            return value.Date.AddDays(1).AddTicks(-1);
+        }
+
+        return value;
+    }
+
+    private static DateTime GetMissionTimestamp(MissionInfo mission)
+    {
+        return mission.QueueTimestamp;
+    }
+
     private void UpdateMissionStatistics()
     {
-        TotalMissions = Missions.Count;
-        RunningMissions = Missions.Count(m => m.NavigationState == 3); // Started
-        PendingMissions = Missions.Count(m => m.NavigationState == 0 || m.NavigationState == 1); // Received or Accepted
-        CompletedMissions = Missions.Count(m => m.NavigationState == 4); // Completed
+        IEnumerable<MissionInfo> missionSource =
+            MissionView != null
+                ? MissionView.Cast<MissionInfo>()
+                : Missions;
+
+        var missionList = missionSource.ToList();
+
+        TotalMissions = missionList.Count;
+        RunningMissions = missionList.Count(m => m.NavigationState == 3); // Started
+        PendingMissions = missionList.Count(m => m.NavigationState == 0 || m.NavigationState == 1); // Received or Accepted
+        CompletedMissions = missionList.Count(m => m.NavigationState == 4); // Completed
     }
 
     private void ClearAlarmSearch()
@@ -1298,11 +1562,54 @@ public class MainViewModel : ViewModelBase
         existing.NavigationState = newMission.NavigationState;
         existing.TransportState = newMission.TransportState;
         existing.Priority = newMission.Priority;
-        existing.CreatedAt = newMission.CreatedAt;
-        existing.ArrivingTime = newMission.ArrivingTime;
+
+        if (!newMission.ArrivingTime.HasValue && newMission.CreatedAt != DateTime.MinValue)
+        {
+            newMission.ArrivingTime = newMission.CreatedAt;
+        }
+
+        if (newMission.CreatedAt != DateTime.MinValue)
+        {
+            existing.CreatedAt = newMission.CreatedAt;
+        }
+
+        if (newMission.ArrivingTime.HasValue)
+        {
+            existing.ArrivingTime = newMission.ArrivingTime;
+        }
+
+        existing.CreatedAtDisplay = newMission.CreatedAtDisplay;
     }
 
     #endregion
+}
+
+public sealed class MissionFilterOption
+{
+    private readonly IReadOnlyList<int>? _navigationStates;
+
+    public MissionFilterOption(string displayName, IReadOnlyList<int>? navigationStates, bool isDefault = false)
+    {
+        DisplayName = displayName;
+        _navigationStates = navigationStates;
+        IsDefault = isDefault;
+    }
+
+    public string DisplayName { get; }
+
+    public bool IsDefault { get; }
+
+    public bool IsAll => _navigationStates == null;
+
+    public bool ContainsState(int state)
+    {
+        if (IsAll)
+        {
+            return true;
+        }
+
+        return _navigationStates.Contains(state);
+    }
 }
 
 public sealed class AlarmSearchOption

@@ -14,11 +14,30 @@ public class MissionInfo : INotifyPropertyChanged
     private int _priority;
     private DateTime _createdAt;
     private DateTime? _arrivingTime;
+    private string _createdAtDisplay = string.Empty;
 
     public string MissionId
     {
         get => _missionId;
-        set { _missionId = value; OnPropertyChanged(); }
+        set
+        {
+            _missionId = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(MissionIdSortValue));
+        }
+    }
+
+    public int MissionIdSortValue
+    {
+        get
+        {
+            if (int.TryParse(MissionId, out var numericId))
+            {
+                return numericId;
+            }
+
+            return int.MinValue;
+        }
     }
 
     public string MissionType
@@ -48,7 +67,13 @@ public class MissionInfo : INotifyPropertyChanged
     public int NavigationState
     {
         get => _navigationState;
-        set { _navigationState = value; OnPropertyChanged(); OnPropertyChanged(nameof(NavigationStateText)); }
+        set
+        {
+            _navigationState = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(NavigationStateText));
+            OnPropertyChanged(nameof(CanCancel));
+        }
     }
 
     public string NavigationStateText
@@ -57,16 +82,18 @@ public class MissionInfo : INotifyPropertyChanged
         {
             return NavigationState switch
             {
-                0 => "수신됨 (Received)",
-                1 => "승인됨 (Accepted)",
-                2 => "거부됨 (Rejected)",
-                3 => "시작됨 (Started)",
-                4 => "완료됨 (Completed)",
-                5 => "취소됨 (Cancelled)",
+                1 => "대기(1)",
+                2 => "거부(2)",
+                3 => "진행중(3)",
+                4 => "완료(4)",
+                5 => "취소(5)",
+                0 => "수신(0)",
                 _ => $"알 수 없음 ({NavigationState})"
             };
         }
     }
+
+    public bool CanCancel => NavigationState == 1 || NavigationState == 3;
 
     public int TransportState
     {
@@ -121,14 +148,32 @@ public class MissionInfo : INotifyPropertyChanged
     public DateTime CreatedAt
     {
         get => _createdAt;
-        set { _createdAt = value; OnPropertyChanged(); }
+        set
+        {
+            _createdAt = value;
+            if (string.IsNullOrEmpty(_createdAtDisplay) && _createdAt != DateTime.MinValue)
+            {
+                _createdAtDisplay = _createdAt.ToString("yyyy-MM-dd HH:mm:ss");
+                OnPropertyChanged(nameof(CreatedAtDisplay));
+            }
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(QueueTimestamp));
+        }
     }
 
     public DateTime? ArrivingTime
     {
         get => _arrivingTime;
-        set { _arrivingTime = value; OnPropertyChanged(); }
+        set { _arrivingTime = value; OnPropertyChanged(); OnPropertyChanged(nameof(QueueTimestamp)); }
     }
+
+    public string CreatedAtDisplay
+    {
+        get => _createdAtDisplay;
+        set { _createdAtDisplay = value; OnPropertyChanged(); }
+    }
+
+    public DateTime QueueTimestamp => ArrivingTime ?? CreatedAt;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

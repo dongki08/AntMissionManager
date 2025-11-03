@@ -113,6 +113,43 @@ public partial class MainWindow : Window
         }
     }
 
+    private void VehicleDataGrid_Sorting(object sender, DataGridSortingEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        if (sender is not DataGrid dataGrid)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        var sortMemberPath = GetSortMemberPath(e.Column);
+        if (string.IsNullOrWhiteSpace(sortMemberPath))
+        {
+            return;
+        }
+
+        var newDirection = e.Column.SortDirection == ListSortDirection.Ascending
+            ? ListSortDirection.Descending
+            : ListSortDirection.Ascending;
+
+        vm.ApplyVehicleColumnSort(sortMemberPath, newDirection);
+
+        e.Column.SortDirection = newDirection;
+
+        foreach (var column in dataGrid.Columns)
+        {
+            if (!ReferenceEquals(column, e.Column))
+            {
+                column.SortDirection = null;
+            }
+        }
+    }
+
     private void AlarmDataGrid_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not DataGrid dataGrid || DataContext is not MainViewModel vm)
@@ -126,6 +163,83 @@ public partial class MainWindow : Window
             if (string.Equals(GetSortMemberPath(column), nameof(AlarmInfo.Timestamp), StringComparison.Ordinal))
             {
                 column.SortDirection = sortDirection;
+            }
+            else
+            {
+                column.SortDirection = null;
+            }
+        }
+    }
+
+    private void VehicleDataGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not DataGrid dataGrid || DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        foreach (var column in dataGrid.Columns)
+        {
+            if (string.Equals(GetSortMemberPath(column), vm.VehicleSortProperty, StringComparison.Ordinal))
+            {
+                column.SortDirection = vm.VehicleSortDirection;
+            }
+            else
+            {
+                column.SortDirection = null;
+            }
+        }
+    }
+
+    private void MissionDataGrid_Sorting(object sender, DataGridSortingEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        if (sender is not DataGrid dataGrid)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        var sortMemberPath = GetSortMemberPath(e.Column);
+        if (string.IsNullOrWhiteSpace(sortMemberPath))
+        {
+            return;
+        }
+
+        var newDirection = e.Column.SortDirection == ListSortDirection.Ascending
+            ? ListSortDirection.Descending
+            : ListSortDirection.Ascending;
+
+        vm.ApplyMissionColumnSort(sortMemberPath, newDirection);
+
+        e.Column.SortDirection = newDirection;
+
+        foreach (var column in dataGrid.Columns)
+        {
+            if (!ReferenceEquals(column, e.Column))
+            {
+                column.SortDirection = null;
+            }
+        }
+    }
+
+    private void MissionDataGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not DataGrid dataGrid || DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        foreach (var column in dataGrid.Columns)
+        {
+            if (string.Equals(GetSortMemberPath(column), vm.MissionSortProperty, StringComparison.Ordinal))
+            {
+                column.SortDirection = vm.MissionSortDirection;
             }
             else
             {

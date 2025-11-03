@@ -209,24 +209,49 @@
                            Padding="24" Margin="0,0,0,16">
                         <StackPanel Orientation="Horizontal">
                             <Border Background="{StaticResource CardBackground}" 
+                                   Margin="0,0,12,0"
                                    CornerRadius="8" 
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
-                                <ComboBox x:Name="MissionStateFilter"
-                                         Background="Transparent"
-                                         BorderThickness="0"
-                                         Foreground="{StaticResource PrimaryText}"
-                                         Width="180"
-                                         Padding="12,8"
-                                         materialDesign:HintAssist.Hint="Filter by Status"
-                                         materialDesign:HintAssist.Foreground="{StaticResource MutedText}">
-                                    <ComboBoxItem Content="All Missions" Foreground="{StaticResource PrimaryText}"/>
-                                    <ComboBoxItem Content="Received (0)" Foreground="{StaticResource PrimaryText}"/>
-                                    <ComboBoxItem Content="Accepted (1)" Foreground="{StaticResource PrimaryText}"/>
-                                    <ComboBoxItem Content="Running (3)" Foreground="{StaticResource PrimaryText}"/>
-                                    <ComboBoxItem Content="Completed (4)" Foreground="{StaticResource PrimaryText}"/>
-                                    <ComboBoxItem Content="Cancelled (5)" Foreground="{StaticResource PrimaryText}"/>
-                                </ComboBox>
+                                <ComboBox Background="Transparent"
+                                          BorderThickness="0"
+                                          Foreground="{StaticResource PrimaryText}"
+                                          Width="220"
+                                          Padding="12,8"
+                                          ItemsSource="{Binding MissionFilterOptions}"
+                                          SelectedItem="{Binding SelectedMissionFilter, Mode=TwoWay}"
+                                          DisplayMemberPath="DisplayName"
+                                          materialDesign:HintAssist.Hint="상태 필터"
+                                          materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                            </Border>
+
+                            <Border Background="{StaticResource CardBackground}" 
+                                   Margin="0,0,12,0"
+                                   CornerRadius="8" 
+                                   BorderBrush="{StaticResource BorderBrush}"
+                                   BorderThickness="1">
+                                <DatePicker SelectedDate="{Binding MissionFilterStart, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="{StaticResource PrimaryText}"
+                                            Width="220"
+                                            Margin="12,8"
+                                            materialDesign:HintAssist.Hint="조회 시작 시간"
+                                            materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                            </Border>
+
+                            <Border Background="{StaticResource CardBackground}" 
+                                   CornerRadius="8" 
+                                   BorderBrush="{StaticResource BorderBrush}"
+                                   BorderThickness="1">
+                                <DatePicker SelectedDate="{Binding MissionFilterEnd, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="{StaticResource PrimaryText}"
+                                            Width="220"
+                                            Margin="12,8"
+                                            materialDesign:HintAssist.Hint="조회 종료 시간"
+                                            materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                             </Border>
                         </StackPanel>
                     </Border>
@@ -384,35 +409,23 @@
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
                                 <DataGrid x:Name="MissionDataGrid"
-                                         ItemsSource="{Binding Missions}"
+                                         ItemsSource="{Binding MissionView}"
                                          Style="{StaticResource AppDataGridStyle}"
                                          RowHeight="45"
                                          ColumnHeaderStyle="{StaticResource CenteredDataGridHeaderStyle}"
-                                         CellStyle="{StaticResource CenteredDataGridCellStyle}">
+                                         CellStyle="{StaticResource CenteredDataGridCellStyle}"
+                                         Sorting="MissionDataGrid_Sorting"
+                                         Loaded="MissionDataGrid_Loaded">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Mission ID" Binding="{Binding MissionId}" Width="1.3*"/>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding MissionType}" Width="0.9*"/>
-                                        <DataGridTextColumn Header="From" Binding="{Binding FromNode}" Width="*"/>
-                                        <DataGridTextColumn Header="To" Binding="{Binding ToNode}" Width="*"/>
-                                        <DataGridTextColumn Header="Vehicle" Binding="{Binding AssignedVehicle}" Width="1.1*"/>
-                                        <DataGridTemplateColumn Header="Nav Status" Width="1.3*">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <Border Background="{Binding NavigationStateText, Converter={StaticResource NavigationStateToColorConverter}}" 
-                                                           CornerRadius="12" 
-                                                           Padding="8,4">
-                                                        <TextBlock Text="{Binding NavigationStateText}" 
-                                                                  Foreground="White"
-                                                                  FontSize="11"
-                                                                  FontWeight="SemiBold"
-                                                                  TextAlignment="Center"/>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Transport" Binding="{Binding TransportStateText}" Width="1.1*"/>
-                                        <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="0.8*"/>
-                                        <DataGridTextColumn Header="Created" Binding="{Binding CreatedAt}" Width="1.5*"/>
+                                        <DataGridTextColumn Header="Mission ID" Binding="{Binding MissionId}" Width="0.8*" SortMemberPath="MissionIdSortValue" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Type" Binding="{Binding MissionType}" Width="1.2*" SortMemberPath="MissionType" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="From" Binding="{Binding FromNode}" Width="*" SortMemberPath="FromNode" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="To" Binding="{Binding ToNode}" Width="*" SortMemberPath="ToNode" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Vehicle" Binding="{Binding AssignedVehicle}" Width="1.1*" SortMemberPath="AssignedVehicle" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Nav Status" Width="1.3*" SortMemberPath="NavigationStateText" Binding="{Binding NavigationStateText}" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Transport" Binding="{Binding TransportStateText}" Width="1.1*" SortMemberPath="TransportStateText" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="0.7*" SortMemberPath="Priority" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="Created" Binding="{Binding CreatedAtDisplay}" Width="1.5*" SortMemberPath="CreatedAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                         <DataGridTemplateColumn Header="Actions" Width="*">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
@@ -425,7 +438,8 @@
                                                            FontSize="11"
                                                            Cursor="Hand"
                                                            Command="{Binding DataContext.CancelMissionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                           CommandParameter="{Binding MissionId}">
+                                                           CommandParameter="{Binding MissionId}"
+                                                           Visibility="{Binding CanCancel, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                         <Button.Style>
                                                             <Style TargetType="Button">
                                                                 <Setter Property="Template">
@@ -831,29 +845,31 @@
                                    CornerRadius="12" 
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
-                                <DataGrid ItemsSource="{Binding Vehicles}"
+                                <DataGrid ItemsSource="{Binding VehiclesView}"
                                          Style="{StaticResource AppDataGridStyle}"
                                          RowHeight="45"
                                          ColumnHeaderStyle="{StaticResource CenteredDataGridHeaderStyle}"
-                                         CellStyle="{StaticResource CenteredDataGridCellStyle}">
+                                         CellStyle="{StaticResource CenteredDataGridCellStyle}"
+                                         Sorting="VehicleDataGrid_Sorting"
+                                         Loaded="VehicleDataGrid_Loaded">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="이름" Binding="{Binding Name}" Width="*"/>
-                                        <DataGridTextColumn Header="위치 좌표" Binding="{Binding CoordinatesText}" Width="1.2*"/>
-                                        <DataGridTextColumn Header="현재위치" Binding="{Binding CurrentNodeName}" Width="1.2*"/>
-                                        <DataGridTemplateColumn Header="배터리" Width="1.2*">
+                                        <DataGridTextColumn Header="이름" Binding="{Binding Name}" Width="*" SortMemberPath="Name" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="위치 좌표" Binding="{Binding CoordinatesText}" Width="1.2*" SortMemberPath="CoordinatesText" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="현재위치" Binding="{Binding CurrentNodeName}" Width="1.2*" SortMemberPath="CurrentNodeName" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTemplateColumn Header="배터리" Width="1.2*" SortMemberPath="BatteryLevel">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <Border Background="{StaticResource SurfaceBackground}" 
-                                                               CornerRadius="10" 
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                        <Border Background="{StaticResource SurfaceBackground}"
+                                                               CornerRadius="10"
                                                                Width="70" Height="20"
                                                                Margin="0,0,8,0">
-                                                            <Border Background="{StaticResource SuccessBrush}" 
+                                                            <Border Background="{StaticResource SuccessBrush}"
                                                                    CornerRadius="10"
                                                                    HorizontalAlignment="Left"
                                                                    Width="{Binding BatteryLevel, Converter={StaticResource BatteryLevelToWidthConverter}}"/>
                                                         </Border>
-                                                        <TextBlock Text="{Binding BatteryLevel, StringFormat={}{0}%}" 
+                                                        <TextBlock Text="{Binding BatteryLevel, StringFormat={}{0}%}"
                                                                   Foreground="{StaticResource SecondaryText}"
                                                                   FontSize="12"
                                                                   VerticalAlignment="Center"/>
@@ -861,8 +877,8 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="목표노드" Binding="{Binding TargetNode}" Width="1.2*"/>
-                                        <DataGridTextColumn Header="차량 상태" Binding="{Binding VehicleStateText}" Width="1.3*"/>
+                                        <DataGridTextColumn Header="목표노드" Binding="{Binding TargetNode}" Width="1.2*" SortMemberPath="TargetNode" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="차량 상태" Binding="{Binding VehicleStateText}" Width="1.3*" SortMemberPath="VehicleStateText" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                     </DataGrid.Columns>
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource AppDataGridRowStyle}">

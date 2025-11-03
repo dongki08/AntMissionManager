@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http;
 using System.Text;
 using AntMissionManager.Models;
@@ -271,6 +272,17 @@ public class AntApiService
                 {
                     foreach (var missionData in apiResponse.payload.missions)
                     {
+                        var arrivingRaw = missionData.arrivingtime;
+                        var createdRaw = missionData.createdat;
+
+                        var arrivingTime = ParseMissionTimestamp(arrivingRaw);
+                        var createdAt = ParseMissionTimestamp(createdRaw);
+
+                        var arrivingDisplay = FormatMissionTimestampRaw(arrivingRaw);
+                        var createdDisplay = !string.IsNullOrEmpty(arrivingDisplay)
+                            ? arrivingDisplay
+                            : FormatMissionTimestampRaw(createdRaw);
+
                         var mission = new MissionInfo
                         {
                             MissionId = missionData.missionid ?? "",
@@ -281,8 +293,9 @@ public class AntApiService
                             NavigationState = missionData.navigationstate ?? 0,
                             TransportState = missionData.transportstate ?? 0,
                             Priority = missionData.priority ?? 0,
-                            CreatedAt = DateTime.TryParse(missionData.createdat?.ToString(), out DateTime createdAt) ? createdAt : DateTime.Now,
-                            ArrivingTime = DateTime.TryParse(missionData.arrivingtime?.ToString(), out DateTime arrivingTime) ? arrivingTime : null
+                            ArrivingTime = arrivingTime ?? createdAt,
+                            CreatedAt = arrivingTime ?? createdAt ?? DateTime.MinValue,
+                            CreatedAtDisplay = createdDisplay
                         };
                         missions.Add(mission);
                     }
@@ -446,6 +459,142 @@ public class AntApiService
         {
             throw new Exception($"차량 추출 오류: {ex.Message}");
         }
+    }
+
+    private static DateTime? ParseMissionTimestamp(dynamic? rawValue)
+    {
+        if (rawValue == null)
+        {
+            return null;
+        }
+
+        if (rawValue is DateTime rawDateTime)
+        {
+            return rawDateTime;
+        }
+
+        if (rawValue is DateTimeOffset rawDateTimeOffset)
+        {
+            return rawDateTimeOffset.LocalDateTime;
+        }
+
+        string? rawText = rawValue.ToString();
+
+        if (string.IsNullOrWhiteSpace(rawText))
+        {
+            return null;
+        }
+
+        if (DateTimeOffset.TryParse(rawText, CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal,
+                out var parsedOffset))
+        {
+            return parsedOffset.ToLocalTime().DateTime;
+        }
+
+        if (DateTime.TryParse(rawText, CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
+                out var parsedDate))
+        {
+            return DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc).ToLocalTime();
+        }
+
+        if (long.TryParse(rawText, out var epochValue))
+        {
+            try
+            {
+                if (epochValue > 1_000_000_000_000)
+                {
+                    return DateTimeOffset.FromUnixTimeMilliseconds(epochValue).LocalDateTime;
+                }
+
+                if (epochValue > 1_000_000_000)
+                {
+                    return DateTimeOffset.FromUnixTimeSeconds(epochValue).LocalDateTime;
+                }
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // Ignore invalid epoch values
+            }
+        }
+
+        return null;
+    }
+
+    private static string FormatMissionTimestampRaw(dynamic? rawValue)
+    {
+        if (rawValue == null)
+        {
+            return string.Empty;
+        }
+
+        var text = rawValue.ToString();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        if (TryFormatWithCulture(text, CultureInfo.InvariantCulture, out string? formatted))
+        {
+            return formatted;
+        }
+
+        if (TryFormatWithCulture(text, CultureInfo.CurrentCulture, out formatted))
+        {
+            return formatted;
+        }
+
+        if (TryFormatWithCulture(text, CultureInfo.GetCultureInfo("ko-KR"), out formatted))
+        {
+            return formatted;
+        }
+
+        if (long.TryParse(text, out long epochValue))
+        {
+            try
+            {
+                if (epochValue > 1_000_000_000_000)
+                {
+                    return DateTimeOffset
+                        .FromUnixTimeMilliseconds(epochValue)
+                        .ToString("yyyy-MM-dd HH:mm:ss");
+                }
+
+                if (epochValue > 1_000_000_000)
+                {
+                    return DateTimeOffset
+                        .FromUnixTimeSeconds(epochValue)
+                        .ToString("yyyy-MM-dd HH:mm:ss");
+                }
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // Ignore invalid epoch values
+            }
+        }
+
+        return text;
+    }
+
+    private static bool TryFormatWithCulture(string text, CultureInfo culture, out string? formatted)
+    {
+        const DateTimeStyles styles = DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal;
+
+        if (DateTimeOffset.TryParse(text, culture, styles, out DateTimeOffset offset))
+        {
+            formatted = offset.ToString("yyyy-MM-dd HH:mm:ss");
+            return true;
+        }
+
+        if (DateTime.TryParse(text, culture, styles, out DateTime parsed))
+        {
+            formatted = parsed.ToString("yyyy-MM-dd HH:mm:ss");
+            return true;
+        }
+
+        formatted = null;
+        return false;
     }
 
     private static int GetBatteryLevel(dynamic? stateData)
@@ -1164,6 +1313,17 @@ public class AntApiService
                 {
                     foreach (var missionData in apiResponse.payload.missions)
                     {
+                        var arrivingRaw = missionData.arrivingtime;
+                        var createdRaw = missionData.createdat;
+
+                        var arrivingTime = ParseMissionTimestamp(arrivingRaw);
+                        var createdAt = ParseMissionTimestamp(createdRaw);
+
+                        var arrivingDisplay = FormatMissionTimestampRaw(arrivingRaw);
+                        var createdDisplay = !string.IsNullOrEmpty(arrivingDisplay)
+                            ? arrivingDisplay
+                            : FormatMissionTimestampRaw(createdRaw);
+
                         var mission = new MissionInfo
                         {
                             MissionId = missionData.missionid ?? "",
@@ -1174,8 +1334,9 @@ public class AntApiService
                             NavigationState = missionData.navigationstate ?? 0,
                             TransportState = missionData.transportstate ?? 0,
                             Priority = missionData.priority ?? 0,
-                            CreatedAt = DateTime.TryParse(missionData.createdat?.ToString(), out DateTime createdAt) ? createdAt : DateTime.Now,
-                            ArrivingTime = DateTime.TryParse(missionData.arrivingtime?.ToString(), out DateTime arrivingTime) ? arrivingTime : null
+                            ArrivingTime = arrivingTime ?? createdAt,
+                            CreatedAt = arrivingTime ?? createdAt ?? DateTime.MinValue,
+                            CreatedAtDisplay = createdDisplay
                         };
                         missions.Add(mission);
                     }

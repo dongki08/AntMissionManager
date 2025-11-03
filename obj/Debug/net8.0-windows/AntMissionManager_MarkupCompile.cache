@@ -4,16 +4,16 @@
 winexe
 C#
 .cs
-C:\Users\hi\RiderProjects\AntTool\AntMissionManager\obj\Debug\net8.0-windows\
+C:\Users\dongki\RiderProjects\AntMissionManager\obj\Debug\net8.0-windows\
 AntMissionManager
 none
 false
 TRACE;DEBUG;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
-C:\Users\hi\RiderProjects\AntTool\AntMissionManager\App.xaml
+C:\Users\dongki\RiderProjects\AntMissionManager\App.xaml
 6-1891244910
 
 2480363272
-2031196021044
+203-334888911
 Views\CommonDialogWindow.xaml;Views\Common\MessageDialog.xaml;Views\LoginWindow.xaml;Views\MainWindow.xaml;Views\MapView.xaml;Views\VehicleDetailWindow.xaml;
 
 False
