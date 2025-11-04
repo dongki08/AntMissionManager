@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:models="clr-namespace:AntMissionManager.Models"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800"
              x:Name="mapViewControl">
@@ -27,43 +28,113 @@
                     
                     <!-- Map Info Overlay (Top Left) -->
                     <Border x:Name="InfoOverlay"
-                            Background="{StaticResource SurfaceBackground}"
+                            Background="#CC1C1C1C"
                             CornerRadius="8"
-                            Padding="12,8"
+                            Padding="16,12"
                             Margin="16,16,0,0"
                             HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Opacity="0.9">
-                        <StackPanel Orientation="Vertical">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <TextBlock Text="Zoom: "
-                                          Foreground="{StaticResource SecondaryText}"
-                                          FontSize="11"
-                                          VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding ZoomLevel, StringFormat={}{0:F2}x, ElementName=mapViewControl}"
-                                          Foreground="{StaticResource PrimaryText}"
-                                          FontSize="11"
-                                          FontWeight="SemiBold"
-                                          VerticalAlignment="Center"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Offset: "
-                                          Foreground="{StaticResource SecondaryText}"
-                                          FontSize="11"
-                                          VerticalAlignment="Center"/>
-                                <TextBlock Foreground="{StaticResource PrimaryText}"
-                                          FontSize="11"
-                                          FontWeight="SemiBold"
-                                          VerticalAlignment="Center">
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0:F0}, {1:F0}">
-                                            <Binding Path="OffsetX" ElementName="mapViewControl"/>
-                                            <Binding Path="OffsetY" ElementName="mapViewControl"/>
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                            </StackPanel>
-                        </StackPanel>
+                            VerticalAlignment="Top">
+                        <Grid Grid.IsSharedSizeScope="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" SharedSizeGroup="VehicleNameColumn"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="BatteryColumn"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="TargetColumn"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Text="지게차"
+                                           Foreground="{StaticResource SecondaryText}"
+                                           FontSize="11"
+                                           Grid.Column="0"/>
+                                <TextBlock Text="배터리"
+                                           Foreground="{StaticResource SecondaryText}"
+                                           FontSize="11"
+                                           Grid.Column="1"
+                                           HorizontalAlignment="Right"
+                                           Margin="16,0,0,0"/>
+                                <TextBlock Text="목표 노드"
+                                           Foreground="{StaticResource SecondaryText}"
+                                           FontSize="11"
+                                           Grid.Column="2"
+                                           Margin="16,0,0,0"/>
+                            </Grid>
+
+                            <ItemsControl Grid.Row="1"
+                                          x:Name="VehicleSummaryItems"
+                                          ItemsSource="{Binding Vehicles, ElementName=mapViewControl}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Vertical"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="Margin" Value="0,0,0,4"/>
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type models:Vehicle}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" SharedSizeGroup="VehicleNameColumn"/>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="BatteryColumn"/>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="TargetColumn"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding Name}"
+                                                       Foreground="{StaticResource PrimaryText}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding BatteryLevel, StringFormat={}{0}%}"
+                                                       FontSize="12"
+                                                       HorizontalAlignment="Center"
+                                                       Margin="16,0,0,0"
+                                                       >
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasLowBattery}" Value="True">
+                                                                <Setter Property="Foreground" Value="{StaticResource ErrorBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding TargetNode}"
+                                                       Foreground="{StaticResource PrimaryText}"
+                                                       FontSize="12"
+                                                       Margin="16,0,0,0"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Grid.Row="1"
+                                       Text="차량 정보 없음"
+                                       Foreground="{StaticResource SecondaryText}"
+                                       FontSize="12"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Top">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasItems, ElementName=VehicleSummaryItems}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
                     </Border>
                     
                     <!-- Settings Button (Top Right) -->

@@ -93,8 +93,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private sealed class VehicleVisual
     {
         public Shape BodyElement { get; init; } = null!;
-        public TextBlock NameLabel { get; init; } = null!;
-        public TextBlock StateLabel { get; init; } = null!;
+        public Border LabelContainer { get; init; } = null!;
+        public TextBlock NameText { get; init; } = null!;
+        public TextBlock StateText { get; init; } = null!;
         public VehicleShapeData? ShapeData { get; init; }
         public string ShapeSignature { get; init; } = string.Empty;
     }
@@ -1006,8 +1007,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 cachedVisual = CreateVehicleVisual(vehicle, vehicleColor, 1.25, pathColor, shapeSignature);
                 _vehicleVisuals[vehicleKey] = cachedVisual;
                 _drawingSurface.Children.Add(cachedVisual.BodyElement);
-                _drawingSurface.Children.Add(cachedVisual.NameLabel);
-                _drawingSurface.Children.Add(cachedVisual.StateLabel);
+                _drawingSurface.Children.Add(cachedVisual.LabelContainer);
             }
 
             var visual = cachedVisual!;
@@ -1063,30 +1063,50 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         }
 
         bodyElement.RenderTransformOrigin = new Point(0.5, 0.5);
-        Canvas.SetZIndex(bodyElement, 900);
 
-        var nameLabel = new TextBlock
+        var nameText = new TextBlock
         {
-            Foreground = new SolidColorBrush(pathColor),
-            FontWeight = FontWeights.Bold,
-            Background = new SolidColorBrush(Color.FromArgb(230, 0, 0, 0)),
+            Foreground = Brushes.White,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 9.5,
             Tag = VehicleVisualTag
         };
-        Canvas.SetZIndex(nameLabel, 901);
 
-        var stateLabel = new TextBlock
+        var stateText = new TextBlock
         {
             Foreground = new SolidColorBrush(vehicleColor),
-            Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
+            FontSize = 8.5,
+            Opacity = 0.9,
             Tag = VehicleVisualTag
         };
-        Canvas.SetZIndex(stateLabel, 901);
+
+        var labelStack = new StackPanel
+        {
+            Orientation = Orientation.Vertical,
+            Tag = VehicleVisualTag
+        };
+        labelStack.Children.Add(nameText);
+        stateText.Margin = new Thickness(0, 2, 0, 0);
+        labelStack.Children.Add(stateText);
+
+        var labelContainer = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(160, 20, 20, 20)),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(6, 3, 6, 3),
+            Child = labelStack,
+            Tag = VehicleVisualTag,
+            SnapsToDevicePixels = true
+        };
+        Canvas.SetZIndex(bodyElement, 900);
+        Canvas.SetZIndex(labelContainer, 901);
 
         return new VehicleVisual
         {
             BodyElement = bodyElement,
-            NameLabel = nameLabel,
-            StateLabel = stateLabel,
+            LabelContainer = labelContainer,
+            NameText = nameText,
+            StateText = stateText,
             ShapeData = shapeData,
             ShapeSignature = shapeSignature
         };
@@ -1156,7 +1176,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
         var heading = ComputeVehicleAngle(vehicle, transform, nodeLookup);
         var rawAngle = heading.HasValue ? NormalizeAngle(heading.Value - 90) : 0;
-        var adjustedAngle = NormalizeAngle(rawAngle - _rotationAngle);
+        var adjustedAngle = rawAngle;
         if (_isFlippedHorizontally)
         {
             adjustedAngle = NormalizeAngle(-adjustedAngle);
@@ -1191,47 +1211,70 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         flipTransform.ScaleY = 1;
         rotateTransform.Angle = finalAngle;
 
-        visual.NameLabel.Text = vehicle.Name ?? string.Empty;
-        var nameFontSize = 9;
-        visual.NameLabel.FontSize = nameFontSize;
-        visual.NameLabel.FontWeight = FontWeights.Bold;
-        visual.NameLabel.Padding = new Thickness(4, 2, 4, 2);
-        if (visual.NameLabel.Foreground is SolidColorBrush nameBrush)
-        {
-            nameBrush.Color = pathColor;
-        }
-        else
-        {
-            visual.NameLabel.Foreground = new SolidColorBrush(pathColor);
-        }
-        ApplyVehicleLabelTransform(visual.NameLabel);
+        visual.NameText.Text = vehicle.Name ?? string.Empty;
+        visual.StateText.Text = vehicle.VehicleStateText;
 
-        visual.StateLabel.Text = vehicle.VehicleStateText;
-        var stateFontSize = 7.5;
-        visual.StateLabel.FontSize = stateFontSize;
-        visual.StateLabel.Padding = new Thickness(3, 1.5, 3, 1.5);
-        if (visual.StateLabel.Foreground is SolidColorBrush stateBrush)
+        if (visual.StateText.Foreground is SolidColorBrush statusBrush)
         {
-            stateBrush.Color = stateColor;
+            statusBrush.Color = stateColor;
         }
         else
         {
-            visual.StateLabel.Foreground = new SolidColorBrush(stateColor);
+            visual.StateText.Foreground = new SolidColorBrush(stateColor);
         }
-        ApplyVehicleLabelTransform(visual.StateLabel);
+
+        if (visual.LabelContainer.Background is SolidColorBrush bgBrush)
+        {
+            bgBrush.Color = Color.FromArgb(160, 20, 20, 20);
+        }
+        else
+        {
+            visual.LabelContainer.Background = new SolidColorBrush(Color.FromArgb(160, 20, 20, 20));
+        }
+
+        ApplyVehicleLabelTransform(visual.LabelContainer);
+
+        visual.LabelContainer.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var desiredSize = visual.LabelContainer.DesiredSize;
+        var labelWidth = desiredSize.Width > 0 ? desiredSize.Width : visual.LabelContainer.ActualWidth;
+        if (labelWidth <= 0)
+        {
+            labelWidth = 40;
+        }
+
+        var labelHeight = desiredSize.Height > 0 ? desiredSize.Height : visual.LabelContainer.ActualHeight;
+        if (labelHeight <= 0)
+        {
+            labelHeight = 16;
+        }
+
+        var clampedZoom = Math.Max(Math.Abs(zoomScale), MIN_ZOOM);
+        var scaleFactor = clampedZoom >= 1.0
+            ? Math.Clamp(1.0 / Math.Sqrt(clampedZoom), 0.65, 1.0)
+            : 1.0;
+        var baseScale = 0.9;
+        var labelScale = Math.Clamp(baseScale * scaleFactor, 0.55, 0.95);
+        var baseGap = 0;
+        var horizontalGap = Math.Max(0, baseGap * labelScale);
+        var offsetSign = (_isFlippedHorizontally ^ _areVehiclesFlipped) ? -1.0 : 1.0;
+
+        var scaledLabelHalfWidth = (labelWidth * labelScale) / 2.0;
+        var offsetDistance = bodyWidth / 2 + horizontalGap + scaledLabelHalfWidth;
+        var angleRad = -_rotationAngle * Math.PI / 180.0;
+        var cos = Math.Cos(angleRad);
+        var sin = Math.Sin(angleRad);
+        var offsetX = offsetSign * offsetDistance * cos;
+        var offsetY = offsetSign * offsetDistance * sin;
 
         var bodyLeft = bodyCenter.X - bodyWidth / 2;
         var bodyTop = bodyCenter.Y - bodyHeight / 2;
+        var labelCenterX = bodyCenter.X + offsetX;
+        var labelCenterY = bodyCenter.Y + offsetY;
+        var labelLeft = labelCenterX - labelWidth / 2;
+        var labelTop = labelCenterY - labelHeight / 2;
+
         SetElementPosition(bodyElement, bodyLeft, bodyTop, animate);
-
-        var labelOffsetX = bodyWidth / 2 + 4;
-        var nameLeft = bodyCenter.X + labelOffsetX;
-        var nameTop = bodyTop - 4;
-        SetElementPosition(visual.NameLabel, nameLeft, nameTop, animate);
-
-        var stateLeft = bodyCenter.X + labelOffsetX;
-        var stateTop = nameTop + 12;
-        SetElementPosition(visual.StateLabel, stateLeft, stateTop, animate);
+        SetElementPosition(visual.LabelContainer, labelLeft, labelTop, animate);
     }
 
     private string BuildVehicleShapeSignature(Vehicle vehicle)
@@ -1589,8 +1632,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private void RemoveVehicleVisual(VehicleVisual visual)
     {
         RemoveFrameworkElement(visual.BodyElement);
-        RemoveFrameworkElement(visual.NameLabel);
-        RemoveFrameworkElement(visual.StateLabel);
+        RemoveFrameworkElement(visual.LabelContainer);
     }
 
     private void RemoveFrameworkElement(FrameworkElement element)
@@ -1609,8 +1651,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
         foreach (var visual in _vehicleVisuals.Values)
         {
-            ApplyVehicleLabelTransform(visual.NameLabel);
-            ApplyVehicleLabelTransform(visual.StateLabel);
+            ApplyVehicleLabelTransform(visual.LabelContainer);
         }
     }
 
@@ -1965,22 +2006,29 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         scaleTransform.ScaleY = scale;
     }
 
-    private void ApplyVehicleLabelTransform(TextBlock textBlock)
+    private void ApplyVehicleLabelTransform(UIElement element)
     {
         var group = new TransformGroup();
 
-        // 1. Counter-rotate to keep the label upright against the map's rotation.
-        group.Children.Add(new RotateTransform(-_rotationAngle));
+        var zoomScale = Math.Max(Math.Abs(_scaleTransform.ScaleX), MIN_ZOOM);
+        var scaleFactor = zoomScale >= 1.0
+            ? Math.Clamp(1.0 / Math.Sqrt(zoomScale), 0.65, 1.0)
+            : 1.0;
+        var baseScale = 0.9;
+        var labelScale = Math.Clamp(baseScale * scaleFactor, 0.55, 0.95);
 
-        // 2. If the map is flipped horizontally, we need to flip the label back
-        // so the text is not mirrored.
-        if (_isFlippedHorizontally)
+        var rotate = new RotateTransform(-_rotationAngle);
+        group.Children.Add(rotate);
+
+        var scaleX = _isFlippedHorizontally ? -labelScale : labelScale;
+        group.Children.Add(new ScaleTransform(scaleX, labelScale));
+
+        if (element is FrameworkElement frameworkElement)
         {
-            group.Children.Add(new ScaleTransform(-1, 1));
+            frameworkElement.RenderTransformOrigin = new Point(0.5, 0.5);
         }
 
-        textBlock.RenderTransformOrigin = new Point(0.5, 0.5);
-        textBlock.RenderTransform = group;
+        element.RenderTransform = group;
     }
 
     private void ScheduleRender()

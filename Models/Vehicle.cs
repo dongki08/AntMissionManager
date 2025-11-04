@@ -219,15 +219,7 @@ public class Vehicle : INotifyPropertyChanged
     {
         get
         {
-            return VehicleState switch
-            {
-                "parking" => "주차 중",
-                "runningAMission" => "미션 수행 중",
-                "movingtonode" => "노드로 이동 중",
-                "extracted" => "추출됨",
-                "charging" => "충전 중",
-                _ => string.IsNullOrEmpty(VehicleState) ? "알 수 없음" : VehicleState
-            };
+            return string.IsNullOrEmpty(VehicleState) ? "알 수 없음" : VehicleState;
         }
     }
 

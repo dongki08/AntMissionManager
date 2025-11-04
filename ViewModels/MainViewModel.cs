@@ -44,6 +44,10 @@ public class MainViewModel : ViewModelBase
     private const int CompletedMissionDefaultOffsetMinutes = 3;
     private string _missionSortProperty = nameof(MissionInfo.MissionIdSortValue);
     private ListSortDirection _missionSortDirection = ListSortDirection.Descending;
+    private bool _isFullMissionHistoryLoaded;
+    private DateTime _lastFullMissionHistoryRefresh = DateTime.MinValue;
+    private readonly TimeSpan _fullMissionHistoryRefreshInterval = TimeSpan.FromSeconds(10);
+    private Task? _fullMissionHistoryLoadTask;
 
     // Mission Router Properties
     private ObservableCollection<MissionTemplate> _missionTemplates = new();
@@ -241,7 +245,11 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            if (!(SelectedMissionFilter?.IsAll ?? false))
+            if (SelectedMissionFilter?.RequiresFullHistory ?? false)
+            {
+                await EnsureFullMissionHistoryAsync(isAutoRefresh: true);
+            }
+            else
             {
                 await RefreshMissionsAsync(isAutoRefresh: true);
             }
@@ -307,12 +315,7 @@ public class MainViewModel : ViewModelBase
                 return;
             }
 
-            if (value?.IsAll ?? false)
-            {
-                RefreshMissionFilter();
-                _ = LoadFullMissionHistoryAsync();
-            }
-            else if (value?.IsDefault ?? false)
+            if (value?.IsDefault ?? false)
             {
                 var anyChanged = false;
 
@@ -336,6 +339,11 @@ public class MainViewModel : ViewModelBase
             else
             {
                 RefreshMissionFilter();
+
+                if (value?.RequiresFullHistory ?? false)
+                {
+                    _ = EnsureFullMissionHistoryAsync();
+                }
             }
 
             CommandManager.InvalidateRequerySuggested();
@@ -978,17 +986,20 @@ public class MainViewModel : ViewModelBase
 
     private Task ExecuteRefreshMissions()
     {
-        return SelectedMissionFilter?.IsAll == true
-            ? LoadFullMissionHistoryAsync()
+        return SelectedMissionFilter?.RequiresFullHistory ?? false
+            ? EnsureFullMissionHistoryAsync(force: true)
             : RefreshMissionsAsync(isAutoRefresh: false);
     }
 
-    private async Task RefreshMissionsAsync(bool isAutoRefresh, bool allowWhenAll = false)
+    private async Task RefreshMissionsAsync(bool isAutoRefresh, bool allowWhenFullHistory = false)
     {
-        if (!allowWhenAll && (SelectedMissionFilter?.IsAll ?? false))
+        if (!allowWhenFullHistory && (SelectedMissionFilter?.RequiresFullHistory ?? false))
         {
             return;
         }
+
+        _isFullMissionHistoryLoaded = false;
+        _lastFullMissionHistoryRefresh = DateTime.MinValue;
 
         if (!isAutoRefresh)
         {
@@ -1649,9 +1660,50 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private async Task LoadFullMissionHistoryAsync()
+    private async Task EnsureFullMissionHistoryAsync(bool force = false, bool isAutoRefresh = false)
     {
-        StatusText = "전체 미션 조회 중...";
+        if (_fullMissionHistoryLoadTask != null)
+        {
+            if (!_fullMissionHistoryLoadTask.IsCompleted)
+            {
+                await _fullMissionHistoryLoadTask;
+                return;
+            }
+
+            _fullMissionHistoryLoadTask = null;
+        }
+
+        if (!force && _lastFullMissionHistoryRefresh != DateTime.MinValue)
+        {
+            var elapsed = DateTime.Now - _lastFullMissionHistoryRefresh;
+            if (elapsed < _fullMissionHistoryRefreshInterval)
+            {
+                return;
+            }
+        }
+
+        var loadTask = LoadFullMissionHistoryAsync(isAutoRefresh);
+        _fullMissionHistoryLoadTask = loadTask;
+
+        try
+        {
+            await loadTask;
+        }
+        finally
+        {
+            if (ReferenceEquals(_fullMissionHistoryLoadTask, loadTask))
+            {
+                _fullMissionHistoryLoadTask = null;
+            }
+        }
+    }
+
+    private async Task LoadFullMissionHistoryAsync(bool isAutoRefresh = false)
+    {
+        if (!isAutoRefresh)
+        {
+            StatusText = "전체 미션 조회 중...";
+        }
 
         try
         {
@@ -1661,18 +1713,19 @@ public class MainViewModel : ViewModelBase
                 .DefaultIfEmpty(int.MinValue)
                 .Max();
 
-            List<MissionInfo>? latestBatch = null;
+            var latestBatch = await _antApiService.GetAllMissionsAsync();
 
-            if (maxMissionId == int.MinValue)
+            if (latestBatch.Any())
             {
-                latestBatch = await _antApiService.GetAllMissionsAsync();
-                if (latestBatch.Any())
+                var latestMax = latestBatch
+                    .Select(m => m.MissionIdSortValue)
+                    .Where(id => id > int.MinValue)
+                    .DefaultIfEmpty(int.MinValue)
+                    .Max();
+
+                if (latestMax > maxMissionId)
                 {
-                    maxMissionId = latestBatch
-                        .Select(m => m.MissionIdSortValue)
-                        .Where(id => id > int.MinValue)
-                        .DefaultIfEmpty(int.MinValue)
-                        .Max();
+                    maxMissionId = latestMax;
                 }
             }
 
@@ -1681,7 +1734,7 @@ public class MainViewModel : ViewModelBase
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Missions.Clear();
-                    if (latestBatch != null)
+                    if (latestBatch.Any())
                     {
                         foreach (var mission in latestBatch.OrderByDescending(m => m.MissionIdSortValue))
                         {
@@ -1691,9 +1744,19 @@ public class MainViewModel : ViewModelBase
                     RefreshMissionFilter();
                 });
 
-                StatusText = latestBatch != null && latestBatch.Count > 0
-                    ? $"전체 범위 미션 ID를 계산할 수 없어 최근 {latestBatch.Count}건만 표시합니다"
-                    : "전체 미션이 없습니다";
+                _isFullMissionHistoryLoaded = false;
+
+                if (!isAutoRefresh)
+                {
+                    StatusText = latestBatch.Count > 0
+                        ? $"전체 범위 미션 ID를 계산할 수 없어 최근 {latestBatch.Count}건만 표시합니다"
+                        : "전체 미션이 없습니다";
+                }
+                else
+                {
+                    Debug.WriteLine("전체 미션 ID 계산 실패 - 최신 100건만 표시");
+                }
+
                 return;
             }
 
@@ -1709,14 +1772,29 @@ public class MainViewModel : ViewModelBase
                 RefreshMissionFilter();
             });
 
-            StatusText = $"전체 미션 {fullMissions.Count}건 조회 완료";
+            _isFullMissionHistoryLoaded = true;
+
+            if (!isAutoRefresh)
+            {
+                StatusText = $"전체 미션 {fullMissions.Count}건 조회 완료";
+            }
         }
         catch (Exception ex)
         {
-            StatusText = $"전체 미션 조회 실패: {ex.Message}";
+            _isFullMissionHistoryLoaded = false;
+
+            if (!isAutoRefresh)
+            {
+                StatusText = $"전체 미션 조회 실패: {ex.Message}";
+            }
+            else
+            {
+                Debug.WriteLine($"전체 미션 자동 갱신 오류: {ex.Message}");
+            }
         }
         finally
         {
+            _lastFullMissionHistoryRefresh = DateTime.Now;
             CommandManager.InvalidateRequerySuggested();
         }
     }
@@ -2349,6 +2427,8 @@ public sealed class MissionFilterOption
     public bool IsDefault { get; }
 
     public bool IsAll => _navigationStates == null;
+
+    public bool RequiresFullHistory => !IsDefault;
 
     public bool ContainsState(int state)
     {

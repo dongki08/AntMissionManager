@@ -626,11 +626,11 @@
                                         <DataGridTextColumn Header="Route" Binding="{Binding RouteDisplay}" Width="2*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                         <DataGridTextColumn Header="Vehicle" Binding="{Binding Vehicle}" Width="0.8*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                         <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="0.65*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Description" Binding="{Binding PriorityDescription}" Width="1.5*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTemplateColumn Header="Actions" Width="1.5*">
+                                        <DataGridTextColumn Header="Description" Binding="{Binding PriorityDescription}" Width="1.8*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTemplateColumn Header="Actions" Width="1.2*">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <StackPanel Orientation="Horizontal">
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                         <Button Content="Execute"
                                                                Style="{StaticResource ModernPrimaryButton}"
                                                                Height="28"
