@@ -686,7 +686,7 @@
                                             Foreground="{StaticResource PrimaryText}"
                                             FontSize="14"
                                             Padding="16,12"
-                                            materialDesign:HintAssist.Hint="Title"
+                                            materialDesign:HintAssist.Hint="제목"
                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
 
@@ -702,7 +702,7 @@
                                              BorderThickness="0"
                                              Foreground="{StaticResource PrimaryText}"
                                              Padding="16,12"
-                                             materialDesign:HintAssist.Hint="Mission Type"
+                                             materialDesign:HintAssist.Hint="미션 타입"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}">
                                         <ComboBoxItem Content="무빙 미션" Tag="{x:Static models:MissionTemplateType.Moving}" Foreground="{StaticResource PrimaryText}"/>
                                         <ComboBoxItem Content="픽앤드롭 미션" Tag="{x:Static models:MissionTemplateType.PickAndDrop}" Foreground="{StaticResource PrimaryText}"/>
@@ -729,7 +729,7 @@
                                              IsEditable="True"
                                              IsTextSearchEnabled="False"
                                              StaysOpenOnEdit="True"
-                                             materialDesign:HintAssist.Hint="From Node"
+                                             materialDesign:HintAssist.Hint="출발지"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
 
@@ -751,7 +751,7 @@
                                              IsEditable="True"
                                              IsTextSearchEnabled="False"
                                              StaysOpenOnEdit="True"
-                                             materialDesign:HintAssist.Hint="To Node"
+                                             materialDesign:HintAssist.Hint="도착지"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
 
@@ -771,7 +771,7 @@
                                              ItemsSource="{Binding Vehicles}"
                                              DisplayMemberPath="Name"
                                              SelectedValuePath="Name"
-                                             materialDesign:HintAssist.Hint="Vehicle"
+                                             materialDesign:HintAssist.Hint="차량"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
 
@@ -787,7 +787,7 @@
                                             Foreground="{StaticResource PrimaryText}"
                                             FontSize="14"
                                             Padding="16,12"
-                                            materialDesign:HintAssist.Hint="Priority"
+                                            materialDesign:HintAssist.Hint="우선 순위"
                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
 
@@ -803,91 +803,209 @@
                                             Foreground="{StaticResource PrimaryText}"
                                             FontSize="14"
                                             Padding="16,12"
-                                            materialDesign:HintAssist.Hint="Description"
+                                            materialDesign:HintAssist.Hint="설명"
                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
 
                                 <!-- Dynamic Mission Configuration (Visible only for Dynamic Mission) -->
                                 <StackPanel Visibility="{Binding IsDynamicMission, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <TextBlock Text="Dynamic Node Configuration" Style="{StaticResource BodyText}" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                                    <TextBlock Text="다이나믹 노드 구성" Style="{StaticResource BodyText}" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
                                     <!-- From Node Config -->
-                                    <TextBlock Text="From Node Vars" Style="{StaticResource CaptionText}" Margin="0,0,0,8"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="From Node Vars" Style="{StaticResource CaptionText}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="+"
+                                                Width="24" Height="24"
+                                                Background="{StaticResource SuccessBrush}"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                FontSize="16"
+                                                FontWeight="Bold"
+                                                Cursor="Hand"
+                                                Command="{Binding AddFromVarCommand}"
+                                                ToolTip="Add Variable">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}" CornerRadius="12">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#16A34A"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </Grid>
                                     <Border Background="{StaticResource DarkBackground}"
-                                           CornerRadius="12"
+                                           CornerRadius="6"
                                            BorderBrush="{StaticResource BorderBrush}"
                                            BorderThickness="1"
                                            Margin="0,0,0,12"
                                            Padding="12">
-                                        <StackPanel>
-                                            <ItemsControl ItemsSource="{Binding FromNodeVars}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid Margin="0,0,0,8">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBox Grid.Column="0" Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
-                                                                    Margin="0,0,4,0"
-                                                                    materialDesign:HintAssist.Hint="Key"/>
-                                                            <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                                                    Margin="4,0,4,0"
-                                                                    materialDesign:HintAssist.Hint="Value"/>
-                                                            <Button Grid.Column="2" Content="X" Width="30" Height="30"
-                                                                   Command="{Binding DataContext.RemoveFromVarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                   CommandParameter="{Binding}"/>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <Button Content="Add Var" Command="{Binding AddFromVarCommand}" HorizontalAlignment="Left"/>
-                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding FromNodeVars}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,0,0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Grid.Column="0" Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                                                Margin="0,0,4,0"
+                                                                Foreground="#94A3B8"
+                                                                materialDesign:HintAssist.Hint="Key"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                Margin="4,0,4,0"
+                                                                Foreground="#94A3B8"
+                                                                materialDesign:HintAssist.Hint="Value"/>
+                                                        <Button Grid.Column="2" Content="✕" Width="20" Height="20"
+                                                               Background="{StaticResource ErrorBrush}"
+                                                               Foreground="White"
+                                                               FontSize="14"
+                                                               FontWeight="Bold"
+                                                               Cursor="Hand"
+                                                               Command="{Binding DataContext.RemoveFromVarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                               CommandParameter="{Binding}">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button">
+                                                                    <Setter Property="Template">
+                                                                        <Setter.Value>
+                                                                            <ControlTemplate TargetType="Button">
+                                                                                <Border  Background="{TemplateBinding Background}" CornerRadius="4">
+                                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                </Border>
+                                                                            </ControlTemplate>
+                                                                        </Setter.Value>
+                                                                    </Setter>
+                                                                    <Style.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter Property="Background" Value="#DC2626"/>
+                                                                        </Trigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                        </Button>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
                                     </Border>
 
                                     <!-- To Node Config -->
-                                    <TextBlock Text="To Node Vars" Style="{StaticResource CaptionText}" Margin="0,0,0,8"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="To Node Vars" Style="{StaticResource CaptionText}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="+"
+                                                Width="24" Height="24"
+                                                Background="{StaticResource SuccessBrush}"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                FontSize="16"
+                                                FontWeight="Bold"
+                                                Cursor="Hand"
+                                                Command="{Binding AddToVarCommand}"
+                                                ToolTip="Add Variable">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}" CornerRadius="12">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#16A34A"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </Grid>
                                     <Border Background="{StaticResource DarkBackground}"
-                                           CornerRadius="12"
+                                           CornerRadius="6"
                                            BorderBrush="{StaticResource BorderBrush}"
                                            BorderThickness="1"
                                            Margin="0,0,0,20"
                                            Padding="12">
-                                        <StackPanel>
-                                            <ItemsControl ItemsSource="{Binding ToNodeVars}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid Margin="0,0,0,8">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBox Grid.Column="0" Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
-                                                                    Margin="0,0,4,0"
-                                                                    materialDesign:HintAssist.Hint="Key"/>
-                                                            <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                                                    Margin="4,0,4,0"
-                                                                    materialDesign:HintAssist.Hint="Value"/>
-                                                            <Button Grid.Column="2" Content="X" Width="30" Height="30"
-                                                                   Command="{Binding DataContext.RemoveToVarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                                   CommandParameter="{Binding}"/>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <Button Content="Add Var" Command="{Binding AddToVarCommand}" HorizontalAlignment="Left"/>
-                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding ToNodeVars}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,0,0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Grid.Column="0" Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                                                Margin="0,0,4,0"
+                                                                Foreground="#94A3B8"
+                                                                materialDesign:HintAssist.Hint="Key"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                Margin="4,0,4,0"
+                                                                Foreground="#94A3B8"
+                                                                materialDesign:HintAssist.Hint="Value"/>
+                                                        <Button Grid.Column="2" Content="✕" Width="20" Height="20"
+                                                               Background="{StaticResource ErrorBrush}"
+                                                               Foreground="White"
+                                                               FontSize="14"
+                                                               FontWeight="Bold"
+                                                               Cursor="Hand"
+                                                               Command="{Binding DataContext.RemoveToVarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                               CommandParameter="{Binding}">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button">
+                                                                    <Setter Property="Template">
+                                                                        <Setter.Value>
+                                                                            <ControlTemplate TargetType="Button">
+                                                                                <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                </Border>
+                                                                            </ControlTemplate>
+                                                                        </Setter.Value>
+                                                                    </Setter>
+                                                                    <Style.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter Property="Background" Value="#DC2626"/>
+                                                                        </Trigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                        </Button>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
                                     </Border>
                                 </StackPanel>
 
                                 <!-- Action Buttons -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,16" HorizontalAlignment="Center">
                                     <Button Content="저장"
+                                            Width="80"
                                            Style="{StaticResource ModernPrimaryButton}"
                                            Command="{Binding SaveTemplateCommand}"/>
                                     <Button Content="초기화"
+                                            Width="80"
                                            Style="{StaticResource ModernPrimaryButton}"
                                            Command="{Binding ClearTemplateCommand}"/>
                                 </StackPanel>
