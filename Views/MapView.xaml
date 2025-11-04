@@ -361,6 +361,39 @@
                                                     </Grid>
                                                 </StackPanel>
 
+                                                <!-- Vehicle Label Scale Control -->
+                                                <StackPanel Orientation="Vertical" Margin="0,0,0,16">
+                                                    <TextBlock Text="라벨 크기 배율"
+                                                              Foreground="{StaticResource SecondaryText}"
+                                                              FontSize="12"
+                                                              Margin="0,0,0,8"/>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <Slider x:Name="VehicleLabelScaleSlider"
+                                                                Grid.Column="0"
+                                                                Minimum="0.5"
+                                                                Maximum="2.5"
+                                                                Value="{Binding VehicleLabelScale, ElementName=mapViewControl, Mode=TwoWay}"
+                                                                TickFrequency="0.1"
+                                                                IsSnapToTickEnabled="True"
+                                                                VerticalAlignment="Center"/>
+
+                                                        <TextBlock Grid.Column="1"
+                                                                  Text="{Binding Value, ElementName=VehicleLabelScaleSlider, StringFormat={}{0:F1}}"
+                                                                  Foreground="{StaticResource PrimaryText}"
+                                                                  FontSize="12"
+                                                                  FontWeight="SemiBold"
+                                                                  VerticalAlignment="Center"
+                                                                  Margin="10,0,0,0"
+                                                                  MinWidth="36"
+                                                                  TextAlignment="Center"/>
+                                                    </Grid>
+                                                </StackPanel>
+
                                                 <!-- Vehicle Orientation -->
                                                 <StackPanel Orientation="Vertical" Margin="0,0,0,16">
                                                     <TextBlock Text="차량 회전"

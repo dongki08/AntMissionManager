@@ -300,4 +300,19 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    private void TemplateActionBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // 이벤트 전파 방지 - 하단 액션바 클릭 시 선택 해제되지 않도록
+        e.Handled = true;
+    }
+
+    private void TemplateGridBackground_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // 데이터그리드가 아닌 영역 클릭 시 선택 해제
+        if (DataContext is MainViewModel vm)
+        {
+            vm.SelectedTemplate = null;
+        }
+    }
 }

@@ -7,8 +7,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using AntMissionManager.Models;
 using AntMissionManager.Services;
 using AntMissionManager.Views;
@@ -1235,30 +1237,308 @@ public class MainViewModel : ViewModelBase
     private void ExecuteEditTemplate(object? parameter)
     {
         if (parameter is not MissionTemplate template)
+        {
             return;
-
-        TemplateTitle = template.Title;
-        SelectedTemplateType = template.TemplateType;
-        FromNode = template.FromNode;
-        ToNode = template.ToNode;
-        TemplateVehicle = template.Vehicle;
-        TemplatePriority = template.Priority;
-        TemplatePriorityDescription = template.PriorityDescription;
-
-        if (template.FromNodeConfig != null)
-        {
-            FromNodeType = template.FromNodeConfig.NodeType;
-            FromNodeVars = new ObservableCollection<DynamicNodeVar>(template.FromNodeConfig.Vars);
         }
 
-        if (template.ToNodeConfig != null)
+        var working = CloneTemplate(template);
+        var fromNodeType = working.FromNodeConfig?.NodeType ?? "Dynamic_Lift";
+        var toNodeType = working.ToNodeConfig?.NodeType ?? "Dynamic_Lift";
+        var fromVars = CloneVars(working.FromNodeConfig?.Vars);
+        var toVars = CloneVars(working.ToNodeConfig?.Vars);
+
+        var dialog = new CommonDialogWindow(string.Empty, "템플릿 수정", CommonDialogWindow.DialogType.Info)
         {
-            ToNodeType = template.ToNodeConfig.NodeType;
-            ToNodeVars = new ObservableCollection<DynamicNodeVar>(template.ToNodeConfig.Vars);
+            Width = 560,
+            Height = 640
+        };
+
+        var owner = Application.Current?
+            .Windows
+            .OfType<Window>()
+            .FirstOrDefault(w => w.IsActive);
+        if (owner != null && !ReferenceEquals(owner, dialog))
+        {
+            dialog.Owner = owner;
         }
 
-        MissionTemplates.Remove(template);
+        dialog.MessageBlock.Visibility = Visibility.Collapsed;
+        dialog.PrimaryButton.Content = "저장";
+        dialog.SecondaryButton.Content = "취소";
+
+        var scroll = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+
+        var formPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+        scroll.Content = formPanel;
+
+        dialog.ContentHost.Children.Clear();
+        dialog.ContentHost.Children.Add(scroll);
+
+        Brush secondaryText = (Brush)(Application.Current?.TryFindResource("SecondaryText") ?? Brushes.Gray);
+        Brush primaryText = (Brush)(Application.Current?.TryFindResource("PrimaryText") ?? Brushes.White);
+
+        FrameworkElement CreateField(string labelText, Control control, Thickness? margin = null)
+        {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Margin = margin ?? new Thickness(0, 0, 0, 16)
+            };
+
+            var label = new TextBlock
+            {
+                Text = labelText,
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 0, 6),
+                Foreground = secondaryText
+            };
+
+            panel.Children.Add(label);
+            panel.Children.Add(control);
+            return panel;
+        }
+
+        void StyleControl(Control control)
+        {
+            control.Padding = new Thickness(12, 8, 12, 8);
+            control.Foreground = primaryText;
+            control.SetResourceReference(Control.BackgroundProperty, "SurfaceBackground");
+            control.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
+            control.BorderThickness = new Thickness(1);
+        }
+
+        var titleBox = new TextBox { Text = working.Title };
+        StyleControl(titleBox);
+        titleBox.TextChanged += (_, __) => working.Title = titleBox.Text;
+        formPanel.Children.Add(CreateField("제목", titleBox));
+
+        var typeCombo = new ComboBox
+        {
+            ItemsSource = Enum.GetValues(typeof(MissionTemplateType)),
+            SelectedItem = working.TemplateType
+        };
+        StyleControl(typeCombo);
+        formPanel.Children.Add(CreateField("미션 타입", typeCombo));
+
+        var vehicleBox = new TextBox { Text = working.Vehicle };
+        StyleControl(vehicleBox);
+        vehicleBox.TextChanged += (_, __) => working.Vehicle = vehicleBox.Text;
+        formPanel.Children.Add(CreateField("지게차", vehicleBox));
+
+        var fromNodeBox = new TextBox { Text = working.FromNode };
+        StyleControl(fromNodeBox);
+        fromNodeBox.TextChanged += (_, __) => working.FromNode = fromNodeBox.Text;
+        var fromSection = CreateField("From 노드", fromNodeBox);
+        formPanel.Children.Add(fromSection);
+
+        var toNodeBox = new TextBox { Text = working.ToNode };
+        StyleControl(toNodeBox);
+        toNodeBox.TextChanged += (_, __) => working.ToNode = toNodeBox.Text;
+        formPanel.Children.Add(CreateField("To 노드", toNodeBox));
+
+        var priorityBox = new TextBox { Text = working.Priority.ToString() };
+        StyleControl(priorityBox);
+        priorityBox.PreviewTextInput += (_, e) => e.Handled = !e.Text.All(char.IsDigit);
+        priorityBox.TextChanged += (_, __) =>
+        {
+            if (int.TryParse(priorityBox.Text, out var value))
+            {
+                working.Priority = value;
+            }
+        };
+        formPanel.Children.Add(CreateField("우선순위", priorityBox));
+
+        var descriptionBox = new TextBox
+        {
+            Text = working.PriorityDescription,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            Height = 80
+        };
+        StyleControl(descriptionBox);
+        descriptionBox.TextChanged += (_, __) => working.PriorityDescription = descriptionBox.Text;
+        formPanel.Children.Add(CreateField("설명", descriptionBox));
+
+        var dynamicPanel = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
+        var dynamicLabel = new TextBlock
+        {
+            Text = "다이나믹 설정",
+            FontSize = 12,
+            Foreground = secondaryText,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        dynamicPanel.Children.Add(dynamicLabel);
+
+        TextBox CreateNodeTypeBox(string label, string initialValue, Action<string> setter)
+        {
+            var box = new TextBox { Text = initialValue };
+            StyleControl(box);
+            box.TextChanged += (_, __) => setter(box.Text);
+            dynamicPanel.Children.Add(CreateField(label, box, new Thickness(0, 0, 0, 8)));
+            return box;
+        }
+
+        CreateNodeTypeBox("From 노드 타입", fromNodeType, value => fromNodeType = value);
+        dynamicPanel.Children.Add(CreateField("From 노드 변수", CreateVarGrid(fromVars), new Thickness(0, 0, 0, 16)));
+
+        CreateNodeTypeBox("To 노드 타입", toNodeType, value => toNodeType = value);
+        dynamicPanel.Children.Add(CreateField("To 노드 변수", CreateVarGrid(toVars), new Thickness(0, 0, 0, 0)));
+
+        formPanel.Children.Add(dynamicPanel);
+
+        void UpdateVisibility()
+        {
+            fromSection.Visibility = working.TemplateType == MissionTemplateType.Moving
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+            dynamicPanel.Visibility = working.TemplateType == MissionTemplateType.Dynamic
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        typeCombo.SelectionChanged += (_, __) =>
+        {
+            if (typeCombo.SelectedItem is MissionTemplateType selected)
+            {
+                working.TemplateType = selected;
+                UpdateVisibility();
+            }
+        };
+
+        UpdateVisibility();
+
+        DataGrid CreateVarGrid(ObservableCollection<DynamicNodeVar> source)
+        {
+            var grid = new DataGrid
+            {
+                ItemsSource = source,
+                AutoGenerateColumns = false,
+                CanUserAddRows = true,
+                CanUserDeleteRows = true,
+                HeadersVisibility = DataGridHeadersVisibility.Column,
+                GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+                RowHeaderWidth = 0,
+                Height = 140,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+
+            grid.SetResourceReference(Control.BackgroundProperty, "SurfaceBackground");
+            grid.SetResourceReference(Control.BorderBrushProperty, "BorderBrush");
+            grid.BorderThickness = new Thickness(1);
+            grid.Foreground = primaryText;
+
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "Key",
+                Binding = new Binding("Key") { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(1, DataGridLengthUnitType.Star)
+            });
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "Value",
+                Binding = new Binding("Value") { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+                Width = new DataGridLength(1, DataGridLengthUnitType.Star)
+            });
+
+            return grid;
+        }
+
+        var result = dialog.ShowDialog();
+        if (result != true)
+        {
+            return;
+        }
+
+        ApplyTemplateChanges(template, working, fromNodeType, toNodeType, fromVars, toVars);
+        RefreshTemplateTitles();
+        _templateViewSource?.View?.Refresh();
+        OnPropertyChanged(nameof(MissionTemplates));
         OnPropertyChanged(nameof(TemplateView));
+
+        _ = _fileService.SaveTemplatesAsync(MissionTemplates.ToList());
+        StatusText = $"템플릿 '{template.Title}' 이(가) 수정되었습니다.";
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private static MissionTemplate CloneTemplate(MissionTemplate source)
+    {
+        return new MissionTemplate
+        {
+            Title = source.Title,
+            TemplateType = source.TemplateType,
+            FromNode = source.FromNode,
+            ToNode = source.ToNode,
+            Vehicle = source.Vehicle,
+            Priority = source.Priority,
+            PriorityDescription = source.PriorityDescription,
+            CreatedAt = source.CreatedAt,
+            FromNodeConfig = source.FromNodeConfig != null ? CloneConfig(source.FromNodeConfig) : null,
+            ToNodeConfig = source.ToNodeConfig != null ? CloneConfig(source.ToNodeConfig) : null
+        };
+    }
+
+    private static DynamicNodeConfig CloneConfig(DynamicNodeConfig config)
+    {
+        return new DynamicNodeConfig
+        {
+            NodeType = config.NodeType,
+            Vars = CloneVars(config.Vars)
+        };
+    }
+
+    private static ObservableCollection<DynamicNodeVar> CloneVars(ObservableCollection<DynamicNodeVar>? source)
+    {
+        if (source == null)
+        {
+            return new ObservableCollection<DynamicNodeVar>();
+        }
+
+        return new ObservableCollection<DynamicNodeVar>(source.Select(v => new DynamicNodeVar
+        {
+            Key = v.Key,
+            Value = v.Value
+        }));
+    }
+
+    private static void ApplyTemplateChanges(
+        MissionTemplate target,
+        MissionTemplate working,
+        string fromNodeType,
+        string toNodeType,
+        ObservableCollection<DynamicNodeVar> fromVars,
+        ObservableCollection<DynamicNodeVar> toVars)
+    {
+        target.Title = working.Title;
+        target.TemplateType = working.TemplateType;
+        target.FromNode = working.FromNode;
+        target.ToNode = working.ToNode;
+        target.Vehicle = working.Vehicle;
+        target.Priority = working.Priority;
+        target.PriorityDescription = working.PriorityDescription;
+
+        if (working.TemplateType == MissionTemplateType.Dynamic)
+        {
+            target.FromNodeConfig = new DynamicNodeConfig
+            {
+                NodeType = string.IsNullOrWhiteSpace(fromNodeType) ? "Dynamic_Lift" : fromNodeType,
+                Vars = new ObservableCollection<DynamicNodeVar>(fromVars.Select(v => new DynamicNodeVar { Key = v.Key, Value = v.Value }))
+            };
+
+            target.ToNodeConfig = new DynamicNodeConfig
+            {
+                NodeType = string.IsNullOrWhiteSpace(toNodeType) ? "Dynamic_Lift" : toNodeType,
+                Vars = new ObservableCollection<DynamicNodeVar>(toVars.Select(v => new DynamicNodeVar { Key = v.Key, Value = v.Value }))
+            };
+        }
+        else
+        {
+            target.FromNodeConfig = null;
+            target.ToNodeConfig = null;
+        }
     }
 
     private void ExecuteAddFromVar()

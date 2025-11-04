@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AntMissionManager.Models;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -185,6 +187,14 @@ public class FileService
     }
 
     // Mission Template Methods
+    private static readonly JsonSerializerOptions TemplateJsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     public async Task<List<MissionTemplate>> LoadTemplatesAsync()
     {
         var filePath = Path.Combine(_dataDirectory, _templatesFileName);
@@ -195,8 +205,7 @@ public class FileService
         try
         {
             var json = await File.ReadAllTextAsync(filePath);
-            var templates = JsonSerializer.Deserialize<List<MissionTemplate>>(json);
-            return templates ?? new List<MissionTemplate>();
+            return DeserializeTemplates(json);
         }
         catch (Exception ex)
         {
@@ -210,13 +219,7 @@ public class FileService
 
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNameCaseInsensitive = true
-            };
-
-            var json = JsonSerializer.Serialize(templates, options);
+            var json = SerializeTemplates(templates);
             await File.WriteAllTextAsync(filePath, json);
         }
         catch (Exception ex)
@@ -233,8 +236,7 @@ public class FileService
         try
         {
             var json = await File.ReadAllTextAsync(filePath);
-            var templates = JsonSerializer.Deserialize<List<MissionTemplate>>(json);
-            return templates ?? new List<MissionTemplate>();
+            return DeserializeTemplates(json);
         }
         catch (Exception ex)
         {
@@ -246,18 +248,148 @@ public class FileService
     {
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNameCaseInsensitive = true
-            };
-
-            var json = JsonSerializer.Serialize(templates, options);
+            var json = SerializeTemplates(templates);
             await File.WriteAllTextAsync(filePath, json);
         }
         catch (Exception ex)
         {
             throw new Exception($"템플릿 내보내기 실패: {ex.Message}");
         }
+    }
+
+    private static string SerializeTemplates(IEnumerable<MissionTemplate> templates)
+    {
+        var dtoList = templates.Select(MissionTemplateMapper.ToDto).ToList();
+        return JsonSerializer.Serialize(dtoList, TemplateJsonOptions);
+    }
+
+    private static List<MissionTemplate> DeserializeTemplates(string json)
+    {
+        try
+        {
+            var dtoList = JsonSerializer.Deserialize<List<MissionTemplateDto>>(json, TemplateJsonOptions);
+            if (dtoList != null && dtoList.Any())
+            {
+                return dtoList.Select(MissionTemplateMapper.FromDto).ToList();
+            }
+        }
+        catch
+        {
+            // Try legacy format below
+        }
+
+        try
+        {
+            var legacy = JsonSerializer.Deserialize<List<MissionTemplate>>(json, TemplateJsonOptions);
+            if (legacy != null)
+            {
+                return legacy;
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+
+        return new List<MissionTemplate>();
+    }
+    private static class MissionTemplateMapper
+    {
+        public static MissionTemplateDto ToDto(MissionTemplate template)
+        {
+            return new MissionTemplateDto
+            {
+                Title = template.Title,
+                MissionType = template.TemplateType switch
+                {
+                    MissionTemplateType.Moving => "Moving",
+                    MissionTemplateType.PickAndDrop => "PickDrop",
+                    MissionTemplateType.Dynamic => "Dynamic",
+                    _ => "PickDrop"
+                },
+                Vehicle = template.Vehicle,
+                FromNode = template.FromNode,
+                ToNode = template.ToNode,
+                Priority = template.Priority,
+                Description = template.PriorityDescription,
+                CreatedAt = template.CreatedAt,
+                FromNodeConfig = template.FromNodeConfig,
+                ToNodeConfig = template.ToNodeConfig
+            };
+        }
+
+        public static MissionTemplate FromDto(MissionTemplateDto dto)
+        {
+            var template = new MissionTemplate
+            {
+                Title = dto.Title ?? string.Empty,
+                Vehicle = dto.Vehicle ?? string.Empty,
+                FromNode = dto.FromNode ?? string.Empty,
+                ToNode = dto.ToNode ?? string.Empty,
+                Priority = dto.Priority ?? 2,
+                PriorityDescription = dto.Description ?? string.Empty,
+                CreatedAt = dto.CreatedAt ?? DateTime.Now,
+                FromNodeConfig = dto.FromNodeConfig,
+                ToNodeConfig = dto.ToNodeConfig
+            };
+
+            template.TemplateType = ResolveTemplateType(dto);
+
+            return template;
+        }
+
+        private static MissionTemplateType ResolveTemplateType(MissionTemplateDto dto)
+        {
+            if (!string.IsNullOrWhiteSpace(dto.MissionType))
+            {
+                switch (dto.MissionType.Trim().ToLowerInvariant())
+                {
+                    case "moving":
+                        return MissionTemplateType.Moving;
+                    case "pickdrop":
+                    case "pickanddrop":
+                    case "pick_drop":
+                        return MissionTemplateType.PickAndDrop;
+                    case "dynamic":
+                        return MissionTemplateType.Dynamic;
+                }
+            }
+
+            if (dto.IsMoving == true)
+            {
+                return MissionTemplateType.Moving;
+            }
+
+            if (dto.IsDynamic == true)
+            {
+                return MissionTemplateType.Dynamic;
+            }
+
+            if (dto.IsPickAndDrop == true)
+            {
+                return MissionTemplateType.PickAndDrop;
+            }
+
+            return MissionTemplateType.PickAndDrop;
+        }
+    }
+
+    private class MissionTemplateDto
+    {
+        [JsonPropertyName("title")] public string? Title { get; set; }
+        [JsonPropertyName("missionType")] public string? MissionType { get; set; }
+        [JsonPropertyName("vehicle")] public string? Vehicle { get; set; }
+        [JsonPropertyName("fromNode")] public string? FromNode { get; set; }
+        [JsonPropertyName("toNode")] public string? ToNode { get; set; }
+        [JsonPropertyName("priority")] public int? Priority { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("createdAt")] public DateTime? CreatedAt { get; set; }
+        [JsonPropertyName("fromNodeConfig")] public DynamicNodeConfig? FromNodeConfig { get; set; }
+        [JsonPropertyName("toNodeConfig")] public DynamicNodeConfig? ToNodeConfig { get; set; }
+
+        // Legacy fields for compatibility
+        [JsonPropertyName("isMoving")] public bool? IsMoving { get; set; }
+        [JsonPropertyName("isPickAndDrop")] public bool? IsPickAndDrop { get; set; }
+        [JsonPropertyName("isDynamic")] public bool? IsDynamic { get; set; }
     }
 }

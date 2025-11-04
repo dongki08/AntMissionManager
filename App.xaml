@@ -382,6 +382,7 @@
             <utilities:BatteryLevelToColorConverter x:Key="BatteryLevelToColorConverter"/>
             <utilities:BatteryLevelToWidthConverter x:Key="BatteryLevelToWidthConverter"/>
             <utilities:NavigationStateToColorConverter x:Key="NavigationStateToColorConverter"/>
+            <utilities:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
 
         </ResourceDictionary>
     </Application.Resources>

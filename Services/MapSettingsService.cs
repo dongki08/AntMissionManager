@@ -23,6 +23,7 @@ public class MapSettingsService
         public double VehicleSize { get; set; } = 16;
         public double VehicleAngleOffset { get; set; } = 0;
         public bool AreVehiclesFlipped { get; set; } = false;
+        public double VehicleLabelScale { get; set; } = 1.0;
         public DateTime LastSaved { get; set; } = DateTime.Now;
     }
 

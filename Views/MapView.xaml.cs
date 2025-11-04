@@ -32,6 +32,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private double _nodeSize = 5;
     private double _vehicleSize = 16;
     private double _vehicleAngleOffset = 0;
+    private double _vehicleLabelScale = 1.0;
     private bool _areVehiclesFlipped = false;
     private DispatcherTimer? _vehicleUpdateTimer;
     private const string VehicleVisualTag = "__VehicleVisual";
@@ -292,6 +293,22 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         }
     }
 
+    public double VehicleLabelScale
+    {
+        get => _vehicleLabelScale;
+        set
+        {
+            var newValue = Math.Clamp(value, 0.3, 2.5);
+            if (Math.Abs(_vehicleLabelScale - newValue) > 0.001)
+            {
+                _vehicleLabelScale = newValue;
+                OnPropertyChanged();
+                QueueDynamicRefresh();
+                RefreshVehicleLabelTransforms();
+            }
+        }
+    }
+
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -388,6 +405,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private void MapView_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         System.Diagnostics.Debug.WriteLine($"MapView SizeChanged - Canvas Size: {MapCanvas.ActualWidth}x{MapCanvas.ActualHeight}");
+        UpdateViewTransform();
         ScheduleRender();
     }
 
@@ -1253,8 +1271,9 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             ? Math.Clamp(1.0 / Math.Sqrt(clampedZoom), 0.65, 1.0)
             : 1.0;
         var baseScale = 0.9;
-        var labelScale = Math.Clamp(baseScale * scaleFactor, 0.55, 0.95);
-        var baseGap = 0;
+        var desiredLabelScale = baseScale * scaleFactor * _vehicleLabelScale;
+        var labelScale = Math.Clamp(desiredLabelScale, 0.35, 2.0);
+        var baseGap = bodyWidth * 0.05;
         var horizontalGap = Math.Max(0, baseGap * labelScale);
         var offsetSign = (_isFlippedHorizontally ^ _areVehiclesFlipped) ? -1.0 : 1.0;
 
@@ -1776,17 +1795,27 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     {
         if (e.Handled) return;
         _isDragging = true;
-        _vehicleUpdateTimer?.Stop(); // Pause vehicle updates during drag
-        _lastMousePosition = e.GetPosition(this);
+        _lastMousePosition = e.GetPosition(MapCanvas);
         MapCanvas.CaptureMouse();
         e.Handled = true;
     }
 
     private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
     {
-        // This event handler is now superseded by the logic in the OnMouseMove override.
-        // The override provides a more reliable event sequence.
-        // We leave this handler attached (from XAML) but keep it empty.
+        if (!_isDragging)
+        {
+            return;
+        }
+
+        var currentPosition = e.GetPosition(MapCanvas);
+        var delta = currentPosition - _lastMousePosition;
+        _lastMousePosition = currentPosition;
+
+        _offsetX += delta.X;
+        _offsetY += delta.Y;
+
+        UpdateViewTransform();
+        e.Handled = true;
     }
 
     private void MapCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -1794,7 +1823,6 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         if (!_isDragging) return;
         _isDragging = false;
         MapCanvas.ReleaseMouseCapture();
-        _vehicleUpdateTimer?.Start(); // Resume vehicle updates
         e.Handled = true;
     }
 
@@ -2015,7 +2043,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             ? Math.Clamp(1.0 / Math.Sqrt(zoomScale), 0.65, 1.0)
             : 1.0;
         var baseScale = 0.9;
-        var labelScale = Math.Clamp(baseScale * scaleFactor, 0.55, 0.95);
+        var desiredLabelScale = baseScale * scaleFactor * _vehicleLabelScale;
+        var labelScale = Math.Clamp(desiredLabelScale, 0.35, 2.0);
 
         var rotate = new RotateTransform(-_rotationAngle);
         group.Children.Add(rotate);
@@ -2076,6 +2105,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             _vehicleSize = settings.VehicleSize;
             _vehicleAngleOffset = settings.VehicleAngleOffset;
             _areVehiclesFlipped = settings.AreVehiclesFlipped;
+            _vehicleLabelScale = settings.VehicleLabelScale <= 0 ? 1.0 : settings.VehicleLabelScale;
 
             OnPropertyChanged(nameof(OffsetX));
             OnPropertyChanged(nameof(OffsetY));
@@ -2086,6 +2116,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             OnPropertyChanged(nameof(VehicleSize));
             OnPropertyChanged(nameof(VehicleAngleOffset));
             OnPropertyChanged(nameof(AreVehiclesFlipped));
+            OnPropertyChanged(nameof(VehicleLabelScale));
 
             UpdateViewTransform();
             ScheduleRender();
@@ -2110,7 +2141,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                 NodeSize = _nodeSize,
                 VehicleSize = _vehicleSize,
                 VehicleAngleOffset = _vehicleAngleOffset,
-                AreVehiclesFlipped = _areVehiclesFlipped
+                AreVehiclesFlipped = _areVehiclesFlipped,
+                VehicleLabelScale = _vehicleLabelScale
             };
             
             await _settingsService.SaveSettingsAsync(settings);
@@ -2244,35 +2276,23 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
         if (_isDragging)
         {
-            // Panning logic
-            var currentPosition = e.GetPosition(this);
-            var delta = currentPosition - _lastMousePosition;
-            _lastMousePosition = currentPosition;
-
-            _offsetX += delta.X;
-            _offsetY += delta.Y;
-
-            // Update the view transform directly
-            UpdateViewTransform();
-            
             e.Handled = true;
+            return;
         }
-        else
-        {
-            // Hover logic (existing logic)
-            var position = e.GetPosition(MapCanvas);
-            var hitNode = GetNodeAtPosition(position);
 
-            if (hitNode != null && !string.IsNullOrEmpty(hitNode.Name) && hitNode.Name != _hoveredNodeName)
-            {
-                _hoveredNodeName = hitNode.Name;
-                ShowNodeSnackbar(hitNode.Name, position);
-            }
-            else if (hitNode == null && _hoveredNodeName != null)
-            {
-                _hoveredNodeName = null;
-                HideSnackbar();
-            }
+        // Hover logic (existing logic)
+        var position = e.GetPosition(MapCanvas);
+        var hitNode = GetNodeAtPosition(position);
+
+        if (hitNode != null && !string.IsNullOrEmpty(hitNode.Name) && hitNode.Name != _hoveredNodeName)
+        {
+            _hoveredNodeName = hitNode.Name;
+            ShowNodeSnackbar(hitNode.Name, position);
+        }
+        else if (hitNode == null && _hoveredNodeName != null)
+        {
+            _hoveredNodeName = null;
+            HideSnackbar();
         }
     }
 

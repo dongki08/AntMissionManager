@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 
 namespace AntMissionManager.Views;
@@ -21,12 +22,17 @@ public partial class CommonDialogWindow : Window
     }
 
     public CommonDialogResult Result { get; private set; } = CommonDialogResult.None;
+    public StackPanel ContentHost => ContentRootPanel;
+    public Button PrimaryButton => ConfirmButton;
+    public Button SecondaryButton => CancelButton;
+    public TextBlock MessageBlock => MessageText;
 
     public CommonDialogWindow(string message, string title = "Confirmation", DialogType type = DialogType.Question)
     {
         InitializeComponent();
 
         TitleText.Text = title;
+        MessageText.Visibility = Visibility.Visible;
         MessageText.Text = message;
 
         // Set icon and color based on dialog type
@@ -54,13 +60,15 @@ public partial class CommonDialogWindow : Window
     private void ConfirmButton_Click(object sender, RoutedEventArgs e)
     {
         Result = CommonDialogResult.Yes;
-        this.Close();
+        DialogResult = true;
+        Close();
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         Result = CommonDialogResult.No;
-        this.Close();
+        DialogResult = false;
+        Close();
     }
 
     public static bool ShowDialog(string message, string title = "Confirmation", DialogType type = DialogType.Question, Window? owner = null)

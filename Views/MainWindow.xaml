@@ -153,7 +153,7 @@
         </Border>
 
         <!-- Main Content -->
-        <TabControl Grid.Row="2" 
+        <TabControl Grid.Row="2"
                    Background="Transparent"
                    Margin="16,3,16,0">
             <TabControl.Resources>
@@ -559,13 +559,14 @@
                 <Grid Margin="0" Background="{StaticResource CardBackground}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="340"/>
+                        <ColumnDefinition Width="300"/>
                     </Grid.ColumnDefinitions>
 
-                    
+                    <!-- Background for deselection -->
+                    <Border Grid.ColumnSpan="2" Background="Transparent" MouseLeftButtonDown="TemplateGridBackground_MouseLeftButtonDown"/>
 
-                    <!-- Template List -->
-                    <Border Grid.Column="0" Style="{StaticResource GlassCard}" Margin="16,24,12,24">
+                        <!-- Template List -->
+                    <Border Grid.Column="0" Style="{StaticResource GlassCard}" Margin="16,24,6,24">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -575,7 +576,7 @@
                             <Grid Grid.Row="0" Margin="0,0,0,20">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="300"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0" Orientation="Horizontal">
@@ -586,29 +587,44 @@
                                         <materialDesign:PackIcon Kind="FormatListBulleted" Width="20" Height="20"
                                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="Mission Templates" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
-                                        <TextBlock Text="Execute or manage mission templates" Style="{StaticResource CaptionText}" Margin="0"/>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,25,0">
+                                        <TextBlock Text="미션 경로 리스트" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="경로를 미리 등록하세요" Style="{StaticResource CaptionText}" Margin="0"/>
                                     </StackPanel>
+
+                                    <!-- Title Filter -->
+                                    <Border Background="{StaticResource SurfaceBackground}"
+                                           CornerRadius="12"
+                                           BorderBrush="{StaticResource BorderBrush}"
+                                           BorderThickness="1"
+                                           VerticalAlignment="Center">
+                                        <ComboBox SelectedValue="{Binding SelectedTemplateFilter}"
+                                                 ItemsSource="{Binding TemplateTitles}"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 Foreground="{StaticResource PrimaryText}"
+                                                 Width="240"
+                                                 Padding="12,12"
+                                                 IsEditable="True"
+                                                 IsTextSearchEnabled="True"
+                                                 StaysOpenOnEdit="True"
+                                                 materialDesign:HintAssist.Hint="Filter by Title"
+                                                 materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
+                                    </Border>
                                 </StackPanel>
 
-                                <!-- Title Filter -->
-                                <Border Grid.Column="1" Background="{StaticResource SurfaceBackground}"
-                                       CornerRadius="12"
-                                       BorderBrush="{StaticResource BorderBrush}"
-                                       BorderThickness="1">
-                                    <ComboBox SelectedValue="{Binding SelectedTemplateFilter}"
-                                             ItemsSource="{Binding TemplateTitles}"
-                                             Background="Transparent"
-                                             BorderThickness="0"
-                                             Foreground="{StaticResource PrimaryText}"
-                                             Padding="12,8"
-                                             IsEditable="True"
-                                             IsTextSearchEnabled="True"
-                                             StaysOpenOnEdit="True"
-                                             materialDesign:HintAssist.Hint="Filter by Title"
-                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
-                                </Border>
+                                <!-- Import/Export Buttons -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="불러오기"
+                                           Width="80"
+                                           Style="{StaticResource ModernPrimaryButton}"
+                                           Command="{Binding ImportTemplatesCommand}"
+                                           Margin="0,0,8,0"/>
+                                    <Button Content="내보내기"
+                                           Width="80"
+                                           Style="{StaticResource ModernPrimaryButton}"
+                                           Command="{Binding ExportTemplatesCommand}"/>
+                                </StackPanel>
                             </Grid>
 
                             <Border Grid.Row="1" Background="{StaticResource DarkBackground}"
@@ -616,65 +632,19 @@
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1">
                                 <DataGrid ItemsSource="{Binding TemplateView}"
+                                         SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
                                          Style="{StaticResource AppDataGridStyle}"
                                          RowHeight="45"
+                                         SelectionMode="Single"
                                          ColumnHeaderStyle="{StaticResource CenteredDataGridHeaderStyle}"
                                          CellStyle="{StaticResource CenteredDataGridCellStyle}">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="1.2*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding TemplateTypeName}" Width="0.7*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Route" Binding="{Binding RouteDisplay}" Width="2*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Vehicle" Binding="{Binding Vehicle}" Width="0.8*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="0.65*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Description" Binding="{Binding PriorityDescription}" Width="1.8*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTemplateColumn Header="Actions" Width="1.2*">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                        <Button Content="Execute"
-                                                               Style="{StaticResource ModernPrimaryButton}"
-                                                               Height="28"
-                                                               Padding="0,0"
-                                                               FontSize="11"
-                                                               Margin="0,0,4,0"
-                                                               Click="ExecuteTemplate_Click"
-                                                               Tag="{Binding}"/>
-                                                        <Button Content="Edit"
-                                                               Style="{StaticResource ModernPrimaryButton}"
-                                                               Height="28"
-                                                               Padding="10,2"
-                                                               FontSize="11"
-                                                               Margin="0,0,4,0"
-                                                               Click="EditTemplate_Click"
-                                                               Tag="{Binding}"/>
-                                                        <Button Content="Delete"
-                                                               Background="{StaticResource ErrorBrush}"
-                                                               Foreground="White"
-                                                               BorderThickness="0"
-                                                               Height="28"
-                                                               Padding="10,2"
-                                                               FontSize="11"
-                                                               Cursor="Hand"
-                                                               Click="DeleteTemplate_Click"
-                                                               Tag="{Binding}">
-                                                            <Button.Style>
-                                                                <Style TargetType="Button">
-                                                                    <Setter Property="Template">
-                                                                        <Setter.Value>
-                                                                            <ControlTemplate TargetType="Button">
-                                                                                <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                                </Border>
-                                                                            </ControlTemplate>
-                                                                        </Setter.Value>
-                                                                    </Setter>
-                                                                </Style>
-                                                            </Button.Style>
-                                                        </Button>
-                                                    </StackPanel>
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="제목" Binding="{Binding Title}" Width="1.2*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="타입" Binding="{Binding TemplateTypeName}" Width="0.7*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="경로" Binding="{Binding RouteDisplay}" Width="1.7*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="차량" Binding="{Binding Vehicle}" Width="0.8*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="우선순위" Binding="{Binding Priority}" Width="0.7*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="설명" Binding="{Binding PriorityDescription}" Width="3.3*" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Border>
@@ -683,7 +653,13 @@
                     
                     <!-- Template Creation -->
                     <Border Grid.Column="1" Style="{StaticResource GlassCard}" Margin="12,24,16,24">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,24">
                                     <Border Background="{StaticResource SuccessBrush}"
@@ -694,8 +670,7 @@
                                                                Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="미션 등록" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
-                                        <TextBlock Text="Define mission" Style="{StaticResource CaptionText}" Margin="0"/>
+                                        <TextBlock Text="경로 등록" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
                                     </StackPanel>
                                 </StackPanel>
 
@@ -796,7 +771,7 @@
                                              ItemsSource="{Binding Vehicles}"
                                              DisplayMemberPath="Name"
                                              SelectedValuePath="Name"
-                                             materialDesign:HintAssist.Hint="Vehicle (Optional - Leave blank for none)"
+                                             materialDesign:HintAssist.Hint="Vehicle"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
 
@@ -828,7 +803,7 @@
                                             Foreground="{StaticResource PrimaryText}"
                                             FontSize="14"
                                             Padding="16,12"
-                                            materialDesign:HintAssist.Hint="Priority Description (Optional)"
+                                            materialDesign:HintAssist.Hint="Description"
                                             materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
 
@@ -909,27 +884,143 @@
 
                                 <!-- Action Buttons -->
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                    <Button Content="Save Template"
+                                    <Button Content="저장"
                                            Style="{StaticResource ModernPrimaryButton}"
                                            Command="{Binding SaveTemplateCommand}"/>
-                                    <Button Content="Clear"
+                                    <Button Content="초기화"
                                            Style="{StaticResource ModernPrimaryButton}"
                                            Command="{Binding ClearTemplateCommand}"/>
                                 </StackPanel>
-
-                                <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,16"/>
-
-                                <!-- Import/Export -->
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="Import"
-                                           Style="{StaticResource ModernPrimaryButton}"
-                                           Command="{Binding ImportTemplatesCommand}"/>
-                                    <Button Content="Export"
-                                           Style="{StaticResource ModernPrimaryButton}"
-                                           Command="{Binding ExportTemplatesCommand}"/>
-                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
+
+                        <!-- Selected Template Actions -->
+                        <Border Grid.Row="1"
+                                Padding="0, 12, 0, 0"
+                                Visibility="{Binding SelectedTemplate, Converter={StaticResource NullToVisibilityConverter}}"
+                                MouseLeftButtonDown="TemplateActionBar_MouseLeftButtonDown">
+                            <Border Background="{StaticResource DarkBackground}"
+                                   CornerRadius="12"
+                                   BorderBrush="{StaticResource BorderBrush}"
+                                   BorderThickness="1"
+                                   Padding="12">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="선택된 셀: "
+                                                   FontSize="12"
+                                                  Style="{StaticResource BodyText}"
+                                                  FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding SelectedTemplate.Title}"
+                                                   FontSize="12"
+                                                  Style="{StaticResource BodyText}"
+                                                  FontWeight="SemiBold"/>
+                                    </StackPanel>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Button Grid.Column="0"
+                                               Content="실행"
+                                               Background="{StaticResource SuccessBrush}"
+                                               Foreground="White"
+                                               BorderThickness="0"
+                                               Height="32"
+                                               FontWeight="ExtraBold"
+                                               FontSize="15"
+                                               Margin="0,0,4,0"
+                                               Cursor="Hand"
+                                               Click="ExecuteTemplate_Click"
+                                               Tag="{Binding SelectedTemplate}">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#16A34A"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <Button Grid.Column="1"
+                                       Content="수정"
+                                       Background="{StaticResource WarningBrush}"
+                                       Foreground="White"
+                                       BorderThickness="0"
+                                       Height="32"
+                                       FontSize="15"
+                                       Margin="2,0"
+                                       Cursor="Hand"
+                                       Click="EditTemplate_Click"
+                                       Tag="{Binding SelectedTemplate}">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#D97706"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <Button Grid.Column="2"
+                                       Content="삭제"
+                                       Background="{StaticResource ErrorBrush}"
+                                       Foreground="White"
+                                       BorderThickness="0"
+                                       Height="32"
+                                       FontSize="15"
+                                       Margin="4,0,0,0"
+                                       Cursor="Hand"
+                                       Click="DeleteTemplate_Click"
+                                       Tag="{Binding SelectedTemplate}">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#DC2626"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Border>
+                        </Grid>
                     </Border>
                 </Grid>
             </TabItem>

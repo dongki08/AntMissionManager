@@ -133,9 +133,9 @@ public class MissionTemplate : INotifyPropertyChanged
     {
         get
         {
-            if (IsMoving)
-                return $"→ {ToNode}";
-            return $"{FromNode} → {ToNode}";
+            var from = string.IsNullOrWhiteSpace(FromNode) ? "N/A" : FromNode;
+            var to = string.IsNullOrWhiteSpace(ToNode) ? "N/A" : ToNode;
+            return $"{from} → {to}";
         }
     }
 
