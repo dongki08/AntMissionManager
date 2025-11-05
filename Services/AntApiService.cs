@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
 using System.Text;
-using AntMissionManager.Models;
+using AntManager.Models;
 using Newtonsoft.Json;
 
-namespace AntMissionManager.Services;
+namespace AntManager.Services;
 
 public class AntApiService
 {

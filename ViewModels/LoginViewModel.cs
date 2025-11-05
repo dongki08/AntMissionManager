@@ -1,9 +1,9 @@
 using System.Windows;
 using System.Windows.Input;
-using AntMissionManager.Services;
-using AntMissionManager.Views;
+using AntManager.Services;
+using AntManager.Views;
 
-namespace AntMissionManager.ViewModels;
+namespace AntManager.ViewModels;
 
 public class LoginViewModel : ViewModelBase
 {

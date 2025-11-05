@@ -4,10 +4,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
-using AntMissionManager.Models;
-using AntMissionManager.ViewModels;
+using AntManager.Models;
+using AntManager.ViewModels;
 
-namespace AntMissionManager.Views;
+namespace AntManager.Views;
 
 public partial class MainWindow : Window
 {

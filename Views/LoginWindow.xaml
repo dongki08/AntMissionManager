@@ -1,14 +1,15 @@
-<Window x:Class="AntMissionManager.Views.LoginWindow"
+<Window x:Class="AntManager.Views.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        Title="ANT Mission Manager - Login" 
+        Title="ANT Manager - Login"
         Height="600" Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="Transparent">
+        Background="Transparent"
+        Icon="/icon/detail_green_logo_ico.ico">
     
     <Border CornerRadius="20" Background="{StaticResource DarkBackground}" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
         <Border.Effect>
@@ -30,11 +31,11 @@
                 </Grid.ColumnDefinitions>
                 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
-                    <materialDesign:PackIcon Kind="Robot" Width="20" Height="20" Foreground="{StaticResource PrimaryBrush}"/>
-                    <TextBlock Text="ANT Manager" 
-                              FontSize="14" 
-                              FontWeight="SemiBold" 
-                              Foreground="{StaticResource PrimaryText}" 
+                    <Image Source="/icon/detail_green_logo_48.png" Width="24" Height="24"/>
+                    <TextBlock Text="ANT Manager"
+                              FontSize="14"
+                              FontWeight="SemiBold"
+                              Foreground="{StaticResource PrimaryText}"
                               Margin="8,0,0,0"
                               VerticalAlignment="Center"/>
                 </StackPanel>
@@ -82,16 +83,15 @@
                 
                 <!-- Header Section -->
                 <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,0">
-                    <Border Background="{StaticResource PrimaryBrush}" 
-                           Width="60" Height="60" 
+                    <Border Background="{StaticResource PrimaryBrush}"
+                           Width="60" Height="60"
                            CornerRadius="40"
                            HorizontalAlignment="Center"
                            Margin="0,0,0,10">
-                        <materialDesign:PackIcon Kind="ShieldAccount" 
-                                               Width="40" Height="40" 
-                                               Foreground="White"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
+                        <Image Source="/icon/detail_green_logo_56.png"
+                               Width="50" Height="50"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
                     </Border>
                     
                     <TextBlock Text="Welcome Back" 

@@ -1,8 +1,8 @@
 using System.Windows;
 using MaterialDesignThemes.Wpf;
-using AntMissionManager.Utilities;
+using AntManager.Utilities;
 
-namespace AntMissionManager.Views.Common;
+namespace AntManager.Views.Common;
 
 public partial class MessageDialog : Window
 {
@@ -11,7 +11,7 @@ public partial class MessageDialog : Window
         InitializeComponent();
     }
     
-    public static MessageBoxResult Show(string message, AntMissionManager.Utilities.MessageType type = AntMissionManager.Utilities.MessageType.Information, MessageBoxButton buttons = MessageBoxButton.OK)
+    public static MessageBoxResult Show(string message, AntManager.Utilities.MessageType type = AntManager.Utilities.MessageType.Information, MessageBoxButton buttons = MessageBoxButton.OK)
     {
         var dialog = new MessageDialog();
         dialog.MessageText.Text = message;
@@ -22,7 +22,7 @@ public partial class MessageDialog : Window
                dialog.DialogResult == false ? MessageBoxResult.No : MessageBoxResult.Cancel;
     }
     
-    public void SetMessage(string message, AntMissionManager.Utilities.MessageType type, bool showCancel = false)
+    public void SetMessage(string message, AntManager.Utilities.MessageType type, bool showCancel = false)
     {
         MessageText.Text = message;
         SetMessageType(ConvertMessageType(type));
@@ -37,14 +37,14 @@ public partial class MessageDialog : Window
         }
     }
     
-    private LocalMessageType ConvertMessageType(AntMissionManager.Utilities.MessageType type)
+    private LocalMessageType ConvertMessageType(AntManager.Utilities.MessageType type)
     {
         return type switch
         {
-            AntMissionManager.Utilities.MessageType.Information => LocalMessageType.Information,
-            AntMissionManager.Utilities.MessageType.Warning => LocalMessageType.Warning,
-            AntMissionManager.Utilities.MessageType.Error => LocalMessageType.Error,
-            AntMissionManager.Utilities.MessageType.Question => LocalMessageType.Information,
+            AntManager.Utilities.MessageType.Information => LocalMessageType.Information,
+            AntManager.Utilities.MessageType.Warning => LocalMessageType.Warning,
+            AntManager.Utilities.MessageType.Error => LocalMessageType.Error,
+            AntManager.Utilities.MessageType.Question => LocalMessageType.Information,
             _ => LocalMessageType.Information
         };
     }

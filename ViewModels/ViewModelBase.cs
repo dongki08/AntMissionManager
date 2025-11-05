@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace AntMissionManager.ViewModels;
+namespace AntManager.ViewModels;
 
 public abstract class ViewModelBase : INotifyPropertyChanged
 {

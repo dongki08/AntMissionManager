@@ -1,7 +1,7 @@
 using System.Windows;
-using AntMissionManager.Views.Common;
+using AntManager.Views.Common;
 
-namespace AntMissionManager.Utilities;
+namespace AntManager.Utilities;
 
 public enum MessageType
 {

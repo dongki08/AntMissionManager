@@ -1,7 +1,7 @@
 using System.Windows;
-using AntMissionManager.Views;
+using AntManager.Views;
 
-namespace AntMissionManager;
+namespace AntManager;
 
 public partial class App : Application
 {

@@ -4,11 +4,11 @@ using System.Text;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AntMissionManager.Models;
+using AntManager.Models;
 using CsvHelper;
 using CsvHelper.Configuration;
 
-namespace AntMissionManager.Services;
+namespace AntManager.Services;
 
 public class FileService
 {
@@ -18,14 +18,21 @@ public class FileService
 
     public FileService()
     {
-        _dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "AntMissionManager");
-        Directory.CreateDirectory(_dataDirectory);
+        // Store data in 'data' folder next to exe file
+        var exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        _dataDirectory = Path.Combine(exeDirectory, "data");
+
+        // Create directory if it doesn't exist
+        if (!Directory.Exists(_dataDirectory))
+        {
+            Directory.CreateDirectory(_dataDirectory);
+        }
     }
 
     public List<MissionRoute> LoadRoutes()
     {
         var filePath = Path.Combine(_dataDirectory, _routesFileName);
-        
+
         if (!File.Exists(filePath))
             return new List<MissionRoute>();
 
@@ -60,7 +67,8 @@ public class FileService
         }
         catch (Exception ex)
         {
-            throw new Exception($"라우터 파일 로드 실패: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Failed to load routes: {ex.Message}");
+            return new List<MissionRoute>();
         }
     }
 
@@ -97,7 +105,7 @@ public class FileService
         }
         catch (Exception ex)
         {
-            throw new Exception($"라우터 파일 저장 실패: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Failed to save routes: {ex.Message}");
         }
     }
 
@@ -209,7 +217,8 @@ public class FileService
         }
         catch (Exception ex)
         {
-            throw new Exception($"템플릿 파일 로드 실패: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Failed to load templates: {ex.Message}");
+            return new List<MissionTemplate>();
         }
     }
 
@@ -224,7 +233,7 @@ public class FileService
         }
         catch (Exception ex)
         {
-            throw new Exception($"템플릿 파일 저장 실패: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Failed to save templates: {ex.Message}");
         }
     }
 

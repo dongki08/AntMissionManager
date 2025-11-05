@@ -1,10 +1,10 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
-using AntMissionManager.Models;
-using AntMissionManager.Services;
+using AntManager.Models;
+using AntManager.Services;
 
-namespace AntMissionManager.Views;
+namespace AntManager.Views;
 
 public partial class VehicleDetailWindow : Window
 {

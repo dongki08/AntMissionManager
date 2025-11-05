@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace AntMissionManager.Models;
+namespace AntManager.Models;
 
 /// <summary>
 /// 맵 전체 데이터

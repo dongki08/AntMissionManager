@@ -1,24 +1,14 @@
 using System;
-using System.IO;
-using System.Text;
 
-namespace AntMissionManager.Services;
+namespace AntManager.Services;
 
 public static class MapLogger
 {
-    private static readonly string LogFilePath;
     private static readonly object LockObject = new object();
 
     static MapLogger()
     {
-        var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "AntMissionManager", "Logs");
-        Directory.CreateDirectory(logDir);
-
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        LogFilePath = Path.Combine(logDir, $"MapDebug_{timestamp}.log");
-
-        Log("=== Map Logger Started ===");
-        Log($"Log file: {LogFilePath}");
+        Log("=== Map Logger Started (Debug Output Only) ===");
     }
 
     public static void Log(string message)
@@ -30,10 +20,7 @@ public static class MapLogger
                 var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                 var logMessage = $"[{timestamp}] {message}";
 
-                // Write to file
-                File.AppendAllText(LogFilePath, logMessage + Environment.NewLine, Encoding.UTF8);
-
-                // Also write to debug output
+                // Write to debug output only
                 System.Diagnostics.Debug.WriteLine(logMessage);
             }
         }
@@ -62,6 +49,6 @@ public static class MapLogger
 
     public static string GetLogFilePath()
     {
-        return LogFilePath;
+        return "Debug Output Only - No File";
     }
 }

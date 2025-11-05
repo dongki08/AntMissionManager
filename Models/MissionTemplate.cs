@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
-namespace AntMissionManager.Models;
+namespace AntManager.Models;
 
 public enum MissionTemplateType
 {

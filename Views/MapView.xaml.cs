@@ -14,11 +14,11 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using AntMissionManager.Models;
-using AntMissionManager.ViewModels;
-using AntMissionManager.Services;
+using AntManager.Models;
+using AntManager.ViewModels;
+using AntManager.Services;
 
-namespace AntMissionManager.Views;
+namespace AntManager.Views;
 
 public partial class MapView : UserControl, INotifyPropertyChanged
 {

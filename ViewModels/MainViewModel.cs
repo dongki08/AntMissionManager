@@ -11,12 +11,12 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using AntMissionManager.Models;
-using AntMissionManager.Services;
-using AntMissionManager.Views;
+using AntManager.Models;
+using AntManager.Services;
+using AntManager.Views;
 using Microsoft.Win32;
 
-namespace AntMissionManager.ViewModels;
+namespace AntManager.ViewModels;
 
 public class MainViewModel : ViewModelBase
 {

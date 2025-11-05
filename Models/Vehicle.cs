@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 
-namespace AntMissionManager.Models;
+namespace AntManager.Models;
 
 public class Vehicle : INotifyPropertyChanged
 {

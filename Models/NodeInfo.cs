@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace AntMissionManager.Models;
+namespace AntManager.Models;
 
 public class NodeInfo : INotifyPropertyChanged
 {

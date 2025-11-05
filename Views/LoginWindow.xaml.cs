@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Input;
-using AntMissionManager.ViewModels;
+using AntManager.ViewModels;
 
-namespace AntMissionManager.Views;
+namespace AntManager.Views;
 
 public partial class LoginWindow : Window
 {

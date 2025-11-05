@@ -1,6 +1,6 @@
 using System.Windows.Input;
 
-namespace AntMissionManager.ViewModels;
+namespace AntManager.ViewModels;
 
 public class RelayCommand : ICommand
 {

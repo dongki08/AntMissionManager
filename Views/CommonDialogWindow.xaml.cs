@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace AntMissionManager.Views;
+namespace AntManager.Views;
 
 public partial class CommonDialogWindow : Window
 {
