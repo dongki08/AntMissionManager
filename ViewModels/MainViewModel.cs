@@ -1607,7 +1607,7 @@ public class MainViewModel : ViewModelBase
         var openFileDialog = new OpenFileDialog
         {
             Filter = "JSON 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
-            Title = "템플릿 파일 가져오기"
+            Title = "미션 경로 파일 가져오기"
         };
 
         if (openFileDialog.ShowDialog() == true)
@@ -1623,11 +1623,11 @@ public class MainViewModel : ViewModelBase
 
                 OnPropertyChanged(nameof(TemplateView));
                 await _fileService.SaveTemplatesAsync(MissionTemplates.ToList());
-                StatusText = $"{importedTemplates.Count}개의 템플릿을 가져왔습니다.";
+                StatusText = $"{importedTemplates.Count}개의 미션 경로를 가져왔습니다.";
             }
             catch (Exception ex)
             {
-                StatusText = $"템플릿 가져오기 실패: {ex.Message}";
+                StatusText = $"미션 경로 가져오기 실패: {ex.Message}";
             }
             finally
             {
@@ -1641,8 +1641,8 @@ public class MainViewModel : ViewModelBase
         var saveFileDialog = new SaveFileDialog
         {
             Filter = "JSON 파일 (*.json)|*.json",
-            Title = "템플릿 파일 내보내기",
-            FileName = $"templates_{DateTime.Now:yyyyMMdd}.json"
+            Title = "미션 경로 파일 내보내기",
+            FileName = $"mission_channel_{DateTime.Now:yyyyMMdd}.json"
         };
 
         if (saveFileDialog.ShowDialog() == true)
@@ -1650,11 +1650,11 @@ public class MainViewModel : ViewModelBase
             try
             {
                 await _fileService.ExportTemplatesAsync(MissionTemplates.ToList(), saveFileDialog.FileName);
-                StatusText = "템플릿을 내보냈습니다.";
+                StatusText = "미션 경로를 내보냈습니다.";
             }
             catch (Exception ex)
             {
-                StatusText = $"템플릿 내보내기 실패: {ex.Message}";
+                StatusText = $"미션 경로 내보내기 실패: {ex.Message}";
             }
             finally
             {

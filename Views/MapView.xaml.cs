@@ -1225,9 +1225,12 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         }
 
         bodyElement.RenderTransformOrigin = new Point(0.5, 0.5);
-        flipTransform.ScaleX = _areVehiclesFlipped ? -1 : 1;
+
+        // 좌우반전만 적용 (위아래는 유지), 턴 방향도 올바르게 보이도록 각도 조정
+        var shouldFlipForMapAndVehicle = _areVehiclesFlipped ^ _isFlippedHorizontally;
+        flipTransform.ScaleX = shouldFlipForMapAndVehicle ? -1 : 1;
         flipTransform.ScaleY = 1;
-        rotateTransform.Angle = finalAngle;
+        rotateTransform.Angle = shouldFlipForMapAndVehicle ? -finalAngle : finalAngle;
 
         visual.NameText.Text = vehicle.Name ?? string.Empty;
         visual.StateText.Text = vehicle.VehicleStateText;
