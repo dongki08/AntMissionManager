@@ -118,12 +118,14 @@ public class Vehicle : INotifyPropertyChanged
     public List<string> Alarms
     {
         get => _alarms;
-        set { _alarms = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasAlarms)); }
+        set { _alarms = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasAlarms)); OnPropertyChanged(nameof(AlarmsText)); }
     }
 
     public bool HasAlarms => Alarms.Any();
-    
+
     public Visibility HasAlarmsVisibility => HasAlarms ? Visibility.Visible : Visibility.Collapsed;
+
+    public string AlarmsText => Alarms.Count > 0 ? string.Join(", ", Alarms) : "없음";
 
     public DateTime LastUpdate
     {

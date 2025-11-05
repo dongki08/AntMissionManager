@@ -370,7 +370,7 @@
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ErrorsText}" Style="{StaticResource BodyText}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="알람 목록 (alarms)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Alarms.Count}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AlarmsText}" Style="{StaticResource BodyText}" Margin="0,6" TextWrapping="Wrap"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="에러 비트 (state.error.bits)" Style="{StaticResource CaptionText}" Margin="0,6"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ErrorBitsText}" Style="{StaticResource BodyText}" Margin="0,6"/>

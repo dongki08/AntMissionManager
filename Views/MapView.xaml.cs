@@ -99,8 +99,10 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         public Border LabelContainer { get; init; } = null!;
         public TextBlock NameText { get; init; } = null!;
         public TextBlock StateText { get; init; } = null!;
+        public TextBlock AlarmText { get; init; } = null!;
         public VehicleShapeData? ShapeData { get; init; }
         public string ShapeSignature { get; init; } = string.Empty;
+        public Ellipse? AlarmGlow { get; set; }
     }
 
     private sealed class TargetHighlightElements
@@ -1318,6 +1320,17 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             Tag = VehicleVisualTag
         };
 
+        var alarmText = new TextBlock
+        {
+            Foreground = new SolidColorBrush(Color.FromRgb(255, 200, 50)),
+            FontSize = 7.5,
+            FontWeight = FontWeights.Bold,
+            Opacity = 0.95,
+            Tag = VehicleVisualTag,
+            Visibility = Visibility.Collapsed,
+            TextWrapping = TextWrapping.NoWrap
+        };
+
         var labelStack = new StackPanel
         {
             Orientation = Orientation.Vertical,
@@ -1326,6 +1339,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         labelStack.Children.Add(nameText);
         stateText.Margin = new Thickness(0, 2, 0, 0);
         labelStack.Children.Add(stateText);
+        alarmText.Margin = new Thickness(0, 2, 0, 0);
+        labelStack.Children.Add(alarmText);
 
         var labelContainer = new Border
         {
@@ -1345,6 +1360,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             LabelContainer = labelContainer,
             NameText = nameText,
             StateText = stateText,
+            AlarmText = alarmText,
             ShapeData = shapeData,
             ShapeSignature = shapeSignature
         };
@@ -1465,6 +1481,36 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             visual.StateText.Foreground = new SolidColorBrush(stateColor);
         }
 
+        // 알람 텍스트 업데이트
+        if (vehicle.HasAlarms && vehicle.Alarms.Count > 0)
+        {
+            // 첫 번째 알람 표시, 여러 개면 개수 표시
+            var firstAlarm = vehicle.Alarms[0];
+            var alarmMessage = vehicle.Alarms.Count > 1
+                ? $"{firstAlarm} +{vehicle.Alarms.Count - 1}개"
+                : firstAlarm;
+
+            visual.AlarmText.Text = alarmMessage;
+            visual.AlarmText.Visibility = Visibility.Visible;
+
+            // 알람 타입에 따른 텍스트 색상 변경
+            var isError = vehicle.Alarms.Any(a => a.StartsWith("vehicle.error", StringComparison.OrdinalIgnoreCase));
+            var textColor = isError ? Color.FromRgb(239, 68, 68) : Color.FromRgb(245, 158, 11);
+
+            if (visual.AlarmText.Foreground is SolidColorBrush alarmBrush)
+            {
+                alarmBrush.Color = textColor;
+            }
+            else
+            {
+                visual.AlarmText.Foreground = new SolidColorBrush(textColor);
+            }
+        }
+        else
+        {
+            visual.AlarmText.Visibility = Visibility.Collapsed;
+        }
+
         if (visual.LabelContainer.Background is SolidColorBrush bgBrush)
         {
             bgBrush.Color = Color.FromArgb(160, 20, 20, 20);
@@ -1518,6 +1564,82 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
         SetElementPosition(bodyElement, bodyLeft, bodyTop, animate);
         SetElementPosition(visual.LabelContainer, labelLeft, labelTop, animate);
+
+        // 알람 표시 처리
+        if (vehicle.HasAlarms)
+        {
+            // 알람 타입에 따른 색상 결정
+            var alarmColor = GetAlarmColor(vehicle.Alarms);
+
+            if (visual.AlarmGlow == null)
+            {
+                // 알람 Glow 생성
+                var alarmGlow = new Ellipse
+                {
+                    Fill = new SolidColorBrush(alarmColor),
+                    StrokeThickness = 0,
+                    Opacity = 0.6,
+                    RenderTransformOrigin = new Point(0.5, 0.5),
+                    RenderTransform = new ScaleTransform(1.0, 1.0)
+                };
+                Panel.SetZIndex(alarmGlow, 899);
+                _drawingSurface.Children.Add(alarmGlow);
+                visual.AlarmGlow = alarmGlow;
+
+                // 애니메이션 시작
+                var blinkAnimation = CreateTargetNodeBlinkAnimation();
+                alarmGlow.BeginAnimation(UIElement.OpacityProperty, blinkAnimation);
+                if (alarmGlow.RenderTransform is ScaleTransform scaleTransform)
+                {
+                    var scaleAnimation = CreateTargetNodeScaleAnimation(0.8, 1.5);
+                    scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimation);
+                    scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnimation);
+                }
+            }
+
+            // 알람 색상 업데이트
+            if (visual.AlarmGlow.Fill is SolidColorBrush brush)
+            {
+                brush.Color = alarmColor;
+            }
+
+            // 알람 Glow 위치 및 크기 업데이트
+            var glowSize = Math.Max(bodyWidth, bodyHeight) * 1.0;
+            visual.AlarmGlow.Width = glowSize;
+            visual.AlarmGlow.Height = glowSize;
+            Canvas.SetLeft(visual.AlarmGlow, bodyCenter.X - glowSize / 2);
+            Canvas.SetTop(visual.AlarmGlow, bodyCenter.Y - glowSize / 2);
+        }
+        else if (visual.AlarmGlow != null)
+        {
+            // 알람이 없으면 Glow 제거
+            _drawingSurface.Children.Remove(visual.AlarmGlow);
+            visual.AlarmGlow = null;
+        }
+    }
+
+    private static Color GetAlarmColor(List<string> alarms)
+    {
+        // vehicle.error로 시작하는 알람이 있으면 진한 붉은색 (우선순위 높음)
+        foreach (var alarm in alarms)
+        {
+            if (alarm.StartsWith("vehicle.error", StringComparison.OrdinalIgnoreCase))
+            {
+                return Color.FromArgb(140, 220, 38, 38); // 진한 붉은색
+            }
+        }
+
+        // vehicle.warning으로 시작하는 알람이 있으면 밝은 주황/노란색
+        foreach (var alarm in alarms)
+        {
+            if (alarm.StartsWith("vehicle.warning", StringComparison.OrdinalIgnoreCase))
+            {
+                return Color.FromArgb(140, 245, 158, 11); // 밝은 주황색 (노란빛)
+            }
+        }
+
+        // 기본값은 붉은색
+        return Color.FromArgb(140, 220, 38, 38);
     }
 
     private string BuildVehicleShapeSignature(Vehicle vehicle)
@@ -1920,6 +2042,10 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     {
         RemoveFrameworkElement(visual.BodyElement);
         RemoveFrameworkElement(visual.LabelContainer);
+        if (visual.AlarmGlow != null)
+        {
+            RemoveFrameworkElement(visual.AlarmGlow);
+        }
     }
 
     private void RemoveFrameworkElement(FrameworkElement element)
@@ -2586,6 +2712,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         return vehicle.VehicleState.ToLower() switch
         {
             "runningamission" => (Color.FromRgb(255, 165, 0), Color.FromArgb(100, 255, 165, 0), "orange (mission)"),
+            "inerror" => (Color.FromRgb(255, 45, 85), Color.FromRgb(255, 99, 71), "red (error)"),
             "charging" => (Color.FromRgb(0, 191, 255), Color.FromArgb(100, 0, 191, 255), "cyan (charging)"),
             "parking" => (Color.FromRgb(128, 128, 128), Color.FromArgb(100, 128, 128, 128), "gray (parking)"),
             "movingtonode" => (Color.FromRgb(255, 255, 0), Color.FromArgb(100, 255, 255, 0), "yellow (moving)"),
