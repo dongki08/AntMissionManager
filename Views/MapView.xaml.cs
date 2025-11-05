@@ -47,16 +47,18 @@ public partial class MapView : UserControl, INotifyPropertyChanged
     private readonly Color[] _vehiclePathPalette =
     {
         Color.FromRgb(255, 45, 85),   // Primary Red
-        Color.FromRgb(255, 214, 10),  // Bright Yellow
+        Color.FromRgb(255, 193, 7),   // Amber
         Color.FromRgb(52, 199, 89),   // Rich Green
+        Color.FromRgb(255, 140, 0),   // Dark Orange
         Color.FromRgb(30, 144, 255),  // Dodger Blue
         Color.FromRgb(186, 85, 211),  // Medium Orchid
-        Color.FromRgb(255, 140, 0),   // Dark Orange
+        Color.FromRgb(255, 214, 10),  // Bright Yellow
         Color.FromRgb(65, 105, 225),  // Royal Blue
         Color.FromRgb(255, 99, 71),   // Tomato
         Color.FromRgb(60, 179, 113),  // Medium Sea Green
-        Color.FromRgb(70, 130, 180)   // Steel Blue
+        Color.FromRgb(70, 130, 180),   // Steel Blue
     };
+    private readonly Dictionary<string, TargetHighlightElements> _targetHighlightElements = new(StringComparer.OrdinalIgnoreCase);
     private bool _skipStaticRender = false;
     private static readonly Regex ShapeNumberRegex = new(@"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
@@ -99,6 +101,18 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         public TextBlock StateText { get; init; } = null!;
         public VehicleShapeData? ShapeData { get; init; }
         public string ShapeSignature { get; init; } = string.Empty;
+    }
+
+    private sealed class TargetHighlightElements
+    {
+        public TargetHighlightElements(Ellipse glow, Ellipse core)
+        {
+            Glow = glow;
+            Core = core;
+        }
+
+        public Ellipse Glow { get; }
+        public Ellipse Core { get; }
     }
 
     // Settings and optimization
@@ -451,6 +465,208 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         RenderMap();
     }
 
+    private HashSet<string> GetCurrentTargetNodes()
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (Vehicles == null)
+        {
+            return result;
+        }
+
+        foreach (var vehicle in Vehicles)
+        {
+            if (vehicle == null)
+            {
+                continue;
+            }
+
+            var targetName = !string.IsNullOrWhiteSpace(vehicle.TargetNode)
+                ? vehicle.TargetNode.Trim()
+                : (vehicle.Path != null && vehicle.Path.Count > 0
+                    ? vehicle.Path[vehicle.Path.Count - 1]
+                    : string.Empty)?.Trim();
+
+            if (string.IsNullOrWhiteSpace(targetName) ||
+                string.Equals(targetName, "없음", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            result.Add(targetName);
+        }
+
+        return result;
+    }
+
+    private static DoubleAnimation CreateTargetNodeBlinkAnimation()
+    {
+        return new DoubleAnimation
+        {
+            From = 0.45,
+            To = 1.0,
+            Duration = new Duration(TimeSpan.FromSeconds(1.6)),
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+        };
+    }
+
+    private static DoubleAnimation CreateTargetNodeScaleAnimation(double from, double to)
+    {
+        return new DoubleAnimation
+        {
+            From = from,
+            To = to,
+            Duration = new Duration(TimeSpan.FromSeconds(1.6)),
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+        };
+    }
+
+    private void RemoveTargetHighlight(string key)
+    {
+        if (!_targetHighlightElements.TryGetValue(key, out var highlight))
+        {
+            return;
+        }
+
+        highlight.Glow.BeginAnimation(UIElement.OpacityProperty, null);
+        highlight.Core.BeginAnimation(UIElement.OpacityProperty, null);
+
+        if (highlight.Glow.RenderTransform is ScaleTransform glowScale)
+        {
+            glowScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            glowScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        }
+
+        if (highlight.Core.RenderTransform is ScaleTransform coreScale)
+        {
+            coreScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            coreScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        }
+
+        _drawingSurface.Children.Remove(highlight.Glow);
+        _drawingSurface.Children.Remove(highlight.Core);
+
+        _targetHighlightElements.Remove(key);
+    }
+
+    private void ClearTargetHighlights()
+    {
+        if (_targetHighlightElements.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var key in _targetHighlightElements.Keys.ToList())
+        {
+            RemoveTargetHighlight(key);
+        }
+    }
+
+    private void UpdateTargetHighlights(HashSet<string> targetNodeNames, Dictionary<string, MapNode> nodeLookup, Func<double, double, Point> transform)
+    {
+        if (targetNodeNames.Count == 0 || nodeLookup.Count == 0)
+        {
+            ClearTargetHighlights();
+            return;
+        }
+
+        var effectiveZoom = Math.Max(_zoomLevel, MIN_ZOOM);
+        var nodeScaleFactor = Math.Clamp(1.0 / Math.Pow(effectiveZoom, 1.2), 0.35, 12.0);
+        var baseVisualSize = Math.Max(_nodeSize * nodeScaleFactor, 1.5);
+        var coreSize = Math.Max(baseVisualSize * 0.75, _nodeSize * 1.5);
+        var glowSize = Math.Max(baseVisualSize * 1.0, _nodeSize * 2.5);
+
+        // Remove any highlights that are no longer needed
+        var keysToRemove = _targetHighlightElements.Keys
+            .Where(key => !targetNodeNames.Contains(key))
+            .ToList();
+
+        foreach (var key in keysToRemove)
+        {
+            RemoveTargetHighlight(key);
+        }
+
+        foreach (var targetName in targetNodeNames)
+        {
+            if (!nodeLookup.TryGetValue(targetName, out var mapNode))
+            {
+                continue;
+            }
+
+            var position = transform(mapNode.X, mapNode.Y);
+            var isNewHighlight = false;
+
+            if (!_targetHighlightElements.TryGetValue(targetName, out var elements))
+            {
+                var glow = new Ellipse
+                {
+                    Width = glowSize,
+                    Height = glowSize,
+                    Fill = new SolidColorBrush(Color.FromArgb(180, 255, 82, 82)),
+                    StrokeThickness = 0,
+                    Opacity = 0.75,
+                    RenderTransformOrigin = new Point(0.5, 0.5),
+                    RenderTransform = new ScaleTransform(1.0, 1.0)
+                };
+                Panel.SetZIndex(glow, 2000);
+
+                var core = new Ellipse
+                {
+                    Width = coreSize,
+                    Height = coreSize,
+                    Fill = new SolidColorBrush(Color.FromRgb(255, 82, 82)),
+                    Stroke = new SolidColorBrush(Color.FromRgb(255, 234, 234)),
+                    StrokeThickness = BaseNodeStrokeThickness,
+                    RenderTransformOrigin = new Point(0.5, 0.5),
+                    RenderTransform = new ScaleTransform(1.0, 1.0)
+                };
+                Panel.SetZIndex(core, 2001);
+
+                _drawingSurface.Children.Add(glow);
+                _drawingSurface.Children.Add(core);
+
+                elements = new TargetHighlightElements(glow, core);
+                _targetHighlightElements[targetName] = elements;
+                isNewHighlight = true;
+            }
+
+            elements.Glow.Width = glowSize;
+            elements.Glow.Height = glowSize;
+            elements.Core.Width = coreSize;
+            elements.Core.Height = coreSize;
+
+            Canvas.SetLeft(elements.Glow, position.X - glowSize / 2);
+            Canvas.SetTop(elements.Glow, position.Y - glowSize / 2);
+            Canvas.SetLeft(elements.Core, position.X - coreSize / 2);
+            Canvas.SetTop(elements.Core, position.Y - coreSize / 2);
+
+            if (isNewHighlight)
+            {
+                var glowBlink = CreateTargetNodeBlinkAnimation();
+                elements.Glow.BeginAnimation(UIElement.OpacityProperty, glowBlink);
+                if (elements.Glow.RenderTransform is ScaleTransform glowTransform)
+                {
+                    var glowScaleAnimation = CreateTargetNodeScaleAnimation(0.88, 1.32);
+                    glowTransform.BeginAnimation(ScaleTransform.ScaleXProperty, glowScaleAnimation);
+                    glowTransform.BeginAnimation(ScaleTransform.ScaleYProperty, glowScaleAnimation);
+                }
+
+                var coreBlink = CreateTargetNodeBlinkAnimation();
+                elements.Core.BeginAnimation(UIElement.OpacityProperty, coreBlink);
+                if (elements.Core.RenderTransform is ScaleTransform coreTransform)
+                {
+                    var coreScaleAnimation = CreateTargetNodeScaleAnimation(0.9, 1.18);
+                    coreTransform.BeginAnimation(ScaleTransform.ScaleXProperty, coreScaleAnimation);
+                    coreTransform.BeginAnimation(ScaleTransform.ScaleYProperty, coreScaleAnimation);
+                }
+            }
+        }
+    }
+
     private void RenderMap()
     {
         var mapData = _cachedMapData ?? MapData;
@@ -472,6 +688,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             _cachedElements.Clear();
             _lastStyleZoom = double.NaN;
             _vehicleVisuals.Clear();
+            ClearTargetHighlights();
         }
 
         var canvasWidth = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
@@ -537,6 +754,7 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             );
         }
 
+        var targetNodeNames = GetCurrentTargetNodes();
         if (!_skipStaticRender)
         {
             foreach (var map in mapData)
@@ -567,8 +785,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
 
         var nodeLookup = allNodes
             .Where(node => !string.IsNullOrWhiteSpace(node.Name))
-            .GroupBy(node => node.Name)
-            .ToDictionary(group => group.Key, group => group.First());
+            .GroupBy(node => node.Name?.Trim() ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
         RemoveVehicleElements();
         RenderMissionPaths(Transform, nodeLookup);
@@ -582,7 +800,6 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                     foreach (var node in layer.Nodes)
                     {
                         var pos = Transform(node.X, node.Y);
-
                         var nodeSize = _nodeSize;
                         var glowSize = nodeSize + 4;
                         var strokeWidth = BaseNodeStrokeThickness;
@@ -617,10 +834,13 @@ public partial class MapView : UserControl, INotifyPropertyChanged
                         Canvas.SetLeft(nodeEllipse, pos.X - nodeSize / 2);
                         Canvas.SetTop(nodeEllipse, pos.Y - nodeSize / 2);
                         _drawingSurface.Children.Add(nodeEllipse);
+
                     }
                 }
             }
         }
+
+        UpdateTargetHighlights(targetNodeNames, nodeLookup, Transform);
 
         RenderVehicles(Transform, nodeLookup);
 
