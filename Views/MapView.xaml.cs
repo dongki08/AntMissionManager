@@ -1450,7 +1450,8 @@ public partial class MapView : UserControl, INotifyPropertyChanged
         var shouldFlipForMapAndVehicle = _areVehiclesFlipped ^ _isFlippedHorizontally;
         flipTransform.ScaleX = shouldFlipForMapAndVehicle ? -1 : 1;
         flipTransform.ScaleY = 1;
-        rotateTransform.Angle = shouldFlipForMapAndVehicle ? -finalAngle : finalAngle;
+        var targetAngle = shouldFlipForMapAndVehicle ? -finalAngle : finalAngle;
+        SetVehicleRotation(rotateTransform, targetAngle, animate && heading.HasValue);
 
         visual.NameText.Text = vehicle.Name ?? string.Empty;
         visual.StateText.Text = vehicle.VehicleStateText;
@@ -1848,6 +1849,50 @@ public partial class MapView : UserControl, INotifyPropertyChanged
             element.BeginAnimation(Canvas.TopProperty, null);
             Canvas.SetTop(element, targetTop);
         }
+    }
+
+    private void SetVehicleRotation(RotateTransform rotateTransform, double targetAngle, bool animate)
+    {
+        if (rotateTransform == null)
+        {
+            return;
+        }
+
+        var normalizedTarget = NormalizeAngle(targetAngle);
+
+        if (!animate)
+        {
+            rotateTransform.BeginAnimation(RotateTransform.AngleProperty, null);
+            rotateTransform.Angle = normalizedTarget;
+            return;
+        }
+
+        var currentAngle = NormalizeAngle(rotateTransform.Angle);
+        var delta = ((normalizedTarget - currentAngle + 540.0) % 360.0) - 180.0;
+
+        if (Math.Abs(delta) < 0.1)
+        {
+            rotateTransform.BeginAnimation(RotateTransform.AngleProperty, null);
+            rotateTransform.Angle = normalizedTarget;
+            return;
+        }
+
+        var animation = new DoubleAnimation
+        {
+            From = currentAngle,
+            To = currentAngle + delta,
+            Duration = TimeSpan.FromMilliseconds(450),
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+            FillBehavior = FillBehavior.Stop
+        };
+
+        animation.Completed += (_, _) =>
+        {
+            rotateTransform.BeginAnimation(RotateTransform.AngleProperty, null);
+            rotateTransform.Angle = normalizedTarget;
+        };
+
+        rotateTransform.BeginAnimation(RotateTransform.AngleProperty, animation, HandoffBehavior.SnapshotAndReplace);
     }
 
     private void RemoveInactiveVehicleVisuals(HashSet<string> activeKeys)
