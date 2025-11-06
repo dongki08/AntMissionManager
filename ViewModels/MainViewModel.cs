@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -50,6 +51,15 @@ public class MainViewModel : ViewModelBase
     private DateTime _lastFullMissionHistoryRefresh = DateTime.MinValue;
     private readonly TimeSpan _fullMissionHistoryRefreshInterval = TimeSpan.FromSeconds(10);
     private Task? _fullMissionHistoryLoadTask;
+
+    // Snackbar state
+    private string _snackbarMessage = string.Empty;
+    private bool _isSnackbarVisible;
+    private bool _isSnackbarPersistent;
+    private CancellationTokenSource? _snackbarCts;
+    private bool _isVehicleSnackbarActive;
+    private string _vehicleSnackbarMessage = string.Empty;
+    private readonly Dictionary<string, string> _activeVehicleAlarms = new(StringComparer.OrdinalIgnoreCase);
 
     // Mission Router Properties
     private ObservableCollection<MissionTemplate> _missionTemplates = new();
@@ -128,7 +138,7 @@ public class MainViewModel : ViewModelBase
 
         MissionFilterOptions = new ObservableCollection<MissionFilterOption>(new[]
         {
-            new MissionFilterOption("기본 (대기/진행/완료)", new[] { 1, 3, 4 }, isDefault: true),
+            new MissionFilterOption("기본 (전체)", null, isDefault: true),
             new MissionFilterOption("전체", null),
             new MissionFilterOption("수신 (0)", new[] { 0 }),
             new MissionFilterOption("대기 (1)", new[] { 1 }),
@@ -417,6 +427,18 @@ public class MainViewModel : ViewModelBase
     {
         get => _cancelledMissions;
         set => SetProperty(ref _cancelledMissions, value);
+    }
+
+    public string SnackbarMessage
+    {
+        get => _snackbarMessage;
+        private set => SetProperty(ref _snackbarMessage, value);
+    }
+
+    public bool IsSnackbarVisible
+    {
+        get => _isSnackbarVisible;
+        private set => SetProperty(ref _isSnackbarVisible, value);
     }
 
     // Mission Router
@@ -1107,16 +1129,19 @@ public class MainViewModel : ViewModelBase
             if (cancelled)
             {
                 StatusText = $"미션 {missionId} 취소 완료";
+                ShowGeneralSnackbar($"미션 {missionId} 취소 완료");
                 await RefreshMissionsAsync(isAutoRefresh: true);
             }
             else
             {
                 StatusText = $"미션 {missionId} 취소 실패";
+                ShowGeneralSnackbar($"미션 {missionId} 취소 실패");
             }
         }
         catch (Exception ex)
         {
             StatusText = $"미션 {missionId} 취소 오류: {ex.Message}";
+            ShowGeneralSnackbar($"미션 {missionId} 취소 오류: {ex.Message}");
         }
         finally
         {
@@ -1221,16 +1246,19 @@ public class MainViewModel : ViewModelBase
             if (success)
             {
                 StatusText = $"미션이 생성되었습니다: {template.Title}";
+                ShowGeneralSnackbar($"미션 '{template.Title}' 실행 완료");
                 await RefreshMissionsAsync(isAutoRefresh: false);
             }
             else
             {
                 StatusText = $"미션 생성 실패: {template.Title}";
+                ShowGeneralSnackbar($"미션 생성 실패: {template.Title}");
             }
         }
         catch (Exception ex)
         {
             StatusText = $"미션 생성 오류: {ex.Message}";
+            ShowGeneralSnackbar($"미션 생성 오류: {ex.Message}");
         }
     }
 
@@ -1728,9 +1756,15 @@ public class MainViewModel : ViewModelBase
 
                 // Remove vehicles that no longer exist
                 var vehiclesToRemove = existingVehicles.Keys.Except(newVehiclesDict.Keys).ToList();
+                var removedAlarmInfo = false;
                 foreach (var vehicleName in vehiclesToRemove)
                 {
                     Vehicles.Remove(existingVehicles[vehicleName]);
+                    removedAlarmInfo |= _activeVehicleAlarms.Remove(vehicleName);
+                }
+                if (removedAlarmInfo)
+                {
+                    RefreshVehicleAlarmSnackbar();
                 }
 
                 // Add new vehicles and update existing ones
@@ -1740,11 +1774,13 @@ public class MainViewModel : ViewModelBase
                     {
                         // Update properties of the existing vehicle instance
                         UpdateVehicleProperties(existingVehicle, newVehicle);
+                        UpdateVehicleAlarmToast(existingVehicle);
                     }
                     else
                     {
                         // Add new vehicle
                         Vehicles.Add(newVehicle);
+                        UpdateVehicleAlarmToast(newVehicle);
                     }
                 }
 
@@ -1993,7 +2029,7 @@ public class MainViewModel : ViewModelBase
                 .DefaultIfEmpty(int.MinValue)
                 .Max();
 
-            var latestBatch = await _antApiService.GetAllMissionsAsync();
+            var latestBatch = await _antApiService.GetAllMissionsUnfilteredAsync();
 
             if (latestBatch.Any())
             {
@@ -2177,10 +2213,9 @@ public class MainViewModel : ViewModelBase
             }
         }
 
-        var timestamp = GetMissionTimestamp(mission);
-
         if (!(filter?.IsDefault ?? false))
         {
+            var timestamp = mission.QueueTimestamp;
             var startBoundary = GetMissionFilterStartBoundary();
             var endBoundary = GetMissionFilterEndBoundary();
 
@@ -2190,15 +2225,6 @@ public class MainViewModel : ViewModelBase
             }
 
             if (timestamp < startBoundary || timestamp > endBoundary)
-            {
-                e.Accepted = false;
-                return;
-            }
-        }
-        else
-        {
-            var cutoff = DateTime.Now.AddMinutes(-CompletedMissionDefaultOffsetMinutes);
-            if (mission.NavigationState == 4 && timestamp < cutoff)
             {
                 e.Accepted = false;
                 return;
@@ -2234,12 +2260,6 @@ public class MainViewModel : ViewModelBase
 
         return value;
     }
-
-    private static DateTime GetMissionTimestamp(MissionInfo mission)
-    {
-        return mission.QueueTimestamp;
-    }
-
     private void UpdateMissionStatistics()
     {
         IEnumerable<MissionInfo> missionSource =
@@ -2277,6 +2297,152 @@ public class MainViewModel : ViewModelBase
     private void ClearMissionSearch()
     {
         MissionSearchTerm = string.Empty;
+    }
+
+    private void ShowGeneralSnackbar(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        ShowSnackbarInternal(message, TimeSpan.FromSeconds(3), persistent: false);
+    }
+
+    private void ShowVehicleSnackbar(string message)
+    {
+        _vehicleSnackbarMessage = message;
+        _isVehicleSnackbarActive = true;
+
+        // If a general snackbar is currently visible, wait for it to finish before showing the vehicle warning again.
+        if (!_isSnackbarPersistent && IsSnackbarVisible)
+        {
+            return;
+        }
+
+        ShowSnackbarInternal(message, duration: null, persistent: true);
+    }
+
+    private void HideVehicleSnackbar()
+    {
+        _isVehicleSnackbarActive = false;
+        _vehicleSnackbarMessage = string.Empty;
+
+        if (_isSnackbarPersistent)
+        {
+            HideSnackbarInternal();
+        }
+    }
+
+    private void ShowSnackbarInternal(string message, TimeSpan? duration, bool persistent)
+    {
+        if (_snackbarCts != null)
+        {
+            _snackbarCts.Cancel();
+            _snackbarCts.Dispose();
+            _snackbarCts = null;
+        }
+
+        SnackbarMessage = message;
+        IsSnackbarVisible = true;
+        _isSnackbarPersistent = persistent;
+
+        if (!persistent)
+        {
+            var cts = new CancellationTokenSource();
+            _snackbarCts = cts;
+            _ = DismissSnackbarAfterAsync(duration ?? TimeSpan.FromSeconds(3), cts);
+        }
+    }
+
+    private void HideSnackbarInternal()
+    {
+        if (_snackbarCts != null)
+        {
+            _snackbarCts.Cancel();
+            _snackbarCts.Dispose();
+            _snackbarCts = null;
+        }
+
+        _isSnackbarPersistent = false;
+        IsSnackbarVisible = false;
+        SnackbarMessage = string.Empty;
+    }
+
+    private async Task DismissSnackbarAfterAsync(TimeSpan delay, CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(delay, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            cts.Dispose();
+            return;
+        }
+
+        if (_snackbarCts != cts)
+        {
+            cts.Dispose();
+            return;
+        }
+
+        HideSnackbarInternal();
+        cts.Dispose();
+
+        if (_isVehicleSnackbarActive && !string.IsNullOrEmpty(_vehicleSnackbarMessage))
+        {
+            ShowVehicleSnackbar(_vehicleSnackbarMessage);
+        }
+    }
+
+    private void UpdateVehicleAlarmToast(Vehicle vehicle)
+    {
+        var firstAlarm = vehicle.Alarms?.FirstOrDefault(a => !string.IsNullOrWhiteSpace(a));
+
+        if (string.IsNullOrWhiteSpace(firstAlarm))
+        {
+            if (_activeVehicleAlarms.Remove(vehicle.Name))
+            {
+                RefreshVehicleAlarmSnackbar();
+            }
+            return;
+        }
+
+        _activeVehicleAlarms[vehicle.Name] = firstAlarm;
+        RefreshVehicleAlarmSnackbar();
+    }
+
+    private void RefreshVehicleAlarmSnackbar()
+    {
+        if (_activeVehicleAlarms.Count == 0)
+        {
+            HideVehicleSnackbar();
+            return;
+        }
+
+        var firstPair = _activeVehicleAlarms.OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase).First();
+        var message = BuildVehicleAlarmMessage(firstPair.Key, firstPair.Value);
+
+        if (_isSnackbarPersistent && string.Equals(SnackbarMessage, message, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (!_isSnackbarPersistent && IsSnackbarVisible)
+        {
+            // Let the current general snackbar finish; it will restore the vehicle warning afterwards.
+            _vehicleSnackbarMessage = message;
+            _isVehicleSnackbarActive = true;
+            return;
+        }
+
+        ShowVehicleSnackbar(message);
+    }
+
+    private string BuildVehicleAlarmMessage(string vehicleName, string alarmText)
+    {
+        return $"차량 {vehicleName} 알람: {alarmText}";
     }
 
     private bool CanClearMissionSearch()

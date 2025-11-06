@@ -140,16 +140,46 @@
                 </Grid>
             </Border>
 
-        <!-- Logout Bar -->
-        <Border Grid.Row="1" Background="{StaticResource DarkBackground}" Margin="12,0">
+        <!-- Logout Bar & Snackbar -->
+        <Border Grid.Row="1" Background="{StaticResource DarkBackground}" Margin="12,0" Padding="0,0,12,0">
             <Grid>
-                <Button Content="Logout"
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Background="Transparent"
+                        CornerRadius="8"
+                        Padding="16,10"
+                        Margin="5,6,12,6"
+                        HorizontalAlignment="Left"
+                        MaxWidth="360"
+                        BorderBrush="{StaticResource SurfaceBackground}"
+                        
+                        Visibility="{Binding IsSnackbarVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="Information"
+                                                 Width="18"
+                                                 Height="18"
+                                                 Foreground="{StaticResource PrimaryBrush}"
+                                                 Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding SnackbarMessage}"
+                                   Foreground="{StaticResource PrimaryText}"
+                                   FontSize="13"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </Border>
+
+                <Button Grid.Column="1"
+                        Content="Logout"
                         Width="100"
                         Height="32"
-                       HorizontalAlignment="Right"
-                       VerticalAlignment="Center"
-                       Style="{StaticResource ModernPrimaryButton}"
-                       Command="{Binding LogoutCommand}"/>
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ModernPrimaryButton}"
+                        Command="{Binding LogoutCommand}"/>
             </Grid>
         </Border>
 

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Globalization;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using AntManager.Models;
@@ -251,20 +252,25 @@ public class AntApiService
 
     public Task<List<MissionInfo>> GetAllMissionsAsync()
     {
-        return GetAllMissionsOrderedAsync(null);
+        return GetAllMissionsOrderedAsync(null, includeRecentFilter: true);
+    }
+
+    public Task<List<MissionInfo>> GetAllMissionsUnfilteredAsync()
+    {
+        return GetAllMissionsOrderedAsync(null, includeRecentFilter: false);
     }
 
     public Task<List<MissionInfo>> GetAllMissionsWithRangeAsync(int maxMissionId)
     {
         if (maxMissionId <= int.MinValue)
         {
-            return GetAllMissionsAsync();
+            return GetAllMissionsOrderedAsync(null, includeRecentFilter: true);
         }
 
-        return GetAllMissionsOrderedAsync($"[0,{maxMissionId}]");
+        return GetAllMissionsOrderedAsync($"[0,{maxMissionId}]", includeRecentFilter: false);
     }
 
-    private async Task<List<MissionInfo>> GetAllMissionsOrderedAsync(string? dataRange)
+    private async Task<List<MissionInfo>> GetAllMissionsOrderedAsync(string? dataRange, bool includeRecentFilter)
     {
         if (!IsConnected)
             throw new InvalidOperationException("ANT 서버에 연결되지 않았습니다.");
@@ -281,11 +287,28 @@ public class AntApiService
                 queryParams.Add($"datarange={dataRange}");
             }
 
+            if (includeRecentFilter)
+            {
+                var recentThreshold = DateTime.Now.AddMinutes(-3);
+                var selection =
+                    $"{{\"criteria\":[\"navigationstate::int IN:0|1|3\",\"arrivingtime::date GT:{recentThreshold:yyyy-MM-dd HH:mm:ss}\"],\"composition\":\"OR\"}}";
+                var encodedSelection = Uri.EscapeDataString(selection);
+                queryParams.Add("dataselection=" + encodedSelection);
+            }
+
             var url = $"{_baseUrl}{_apiVersion}/missions";
             if (queryParams.Count > 0)
             {
                 url += "?" + string.Join("&", queryParams);
             }
+
+            var decodedUrl = Uri.UnescapeDataString(url);
+            var decodedUrlLog = $"[AntApiService] missions request url (decoded): {decodedUrl}";
+            var encodedUrlLog = $"[AntApiService] missions request url (encoded): {url}";
+            Debug.WriteLine(decodedUrlLog);
+            Debug.WriteLine(encodedUrlLog);
+            Console.WriteLine(decodedUrlLog);
+            Console.WriteLine(encodedUrlLog);
 
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {_token}");
