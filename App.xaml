@@ -19,6 +19,7 @@
             <SolidColorBrush x:Key="SuccessBrush" Color="#10B981"/>
             <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B"/>
             <SolidColorBrush x:Key="ErrorBrush" Color="#EF4444"/>
+            <SolidColorBrush x:Key="ErrorDarkBrush" Color="#DC2626"/>
             
             <!-- Background Colors -->
             <SolidColorBrush x:Key="DarkBackground" Color="#0F172A"/>
@@ -141,6 +142,47 @@
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="border" Property="Background" Value="#0E7490"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="ModernDangerButton" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource ErrorBrush}"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Height" Value="40"/>
+                <Setter Property="Margin" Value="8,4"/>
+                <Setter Property="Padding" Value="0,0"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="8"
+                                    BorderThickness="0">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="{StaticResource ErrorDarkBrush}"/>
+                                    <Setter Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect Color="#F87171" BlurRadius="12" ShadowDepth="0" Opacity="0.45"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#B91C1C"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="border" Property="Background" Value="#475569"/>
+                                    <Setter Property="Foreground" Value="#94A3B8"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>

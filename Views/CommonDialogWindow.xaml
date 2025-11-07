@@ -40,7 +40,7 @@
 
             <!-- Message Content -->
             <Border Grid.Row="1" Background="{StaticResource CardBackground}" Padding="30,20">
-                <StackPanel x:Name="ContentRootPanel">
+                <StackPanel x:Name="ContentRootPanel" VerticalAlignment="Center">
                     <TextBlock x:Name="MessageText" Text="Are you sure?"
                                FontSize="14"
                                Foreground="{StaticResource SecondaryText}"

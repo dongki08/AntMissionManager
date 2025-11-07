@@ -963,6 +963,7 @@ public class MainViewModel : ViewModelBase
     public ICommand ExecuteTemplateCommand { get; private set; } = null!;
     public ICommand EditTemplateCommand { get; private set; } = null!;
     public ICommand DeleteTemplateCommand { get; private set; } = null!;
+    public ICommand DeleteAllTemplatesCommand { get; private set; } = null!;
     public ICommand AddFromVarCommand { get; private set; } = null!;
     public ICommand AddToVarCommand { get; private set; } = null!;
     public ICommand RemoveFromVarCommand { get; private set; } = null!;
@@ -991,6 +992,7 @@ public class MainViewModel : ViewModelBase
         ExecuteTemplateCommand = new AsyncRelayCommand(ExecuteTemplate);
         EditTemplateCommand = new RelayCommand(ExecuteEditTemplate);
         DeleteTemplateCommand = new AsyncRelayCommand(ExecuteDeleteTemplate);
+        DeleteAllTemplatesCommand = new AsyncRelayCommand(ExecuteDeleteAllTemplates, _ => MissionTemplates.Any());
         AddFromVarCommand = new RelayCommand(ExecuteAddFromVar);
         AddToVarCommand = new RelayCommand(ExecuteAddToVar);
         RemoveFromVarCommand = new RelayCommand(ExecuteRemoveFromVar);
@@ -1001,13 +1003,13 @@ public class MainViewModel : ViewModelBase
         InsertVehicleCommand = new AsyncRelayCommand(ExecuteInsertVehicle, CanExecuteVehicleCommand);
         ExtractVehicleCommand = new AsyncRelayCommand(ExecuteExtractVehicle, CanExecuteVehicleCommand);
         RefreshVehiclesCommand = new AsyncRelayCommand(ExecuteRefreshVehicles);
-    RefreshNodesCommand = new AsyncRelayCommand(ExecuteRefreshNodes);
-    ConnectToServerCommand = new AsyncRelayCommand(ExecuteConnectToServer);
+        RefreshNodesCommand = new AsyncRelayCommand(ExecuteRefreshNodes);
+        ConnectToServerCommand = new AsyncRelayCommand(ExecuteConnectToServer);
 
-    RefreshAlarmsCommand = new AsyncRelayCommand(ExecuteRefreshAlarms);
-    ClearAlarmSearchCommand = new RelayCommand(_ => ClearAlarmSearch(), _ => CanClearAlarmSearch());
-    ClearMissionSearchCommand = new RelayCommand(_ => ClearMissionSearch(), _ => CanClearMissionSearch());
-}
+        RefreshAlarmsCommand = new AsyncRelayCommand(ExecuteRefreshAlarms);
+        ClearAlarmSearchCommand = new RelayCommand(_ => ClearAlarmSearch(), _ => CanClearAlarmSearch());
+        ClearMissionSearchCommand = new RelayCommand(_ => ClearMissionSearch(), _ => CanClearMissionSearch());
+    }
 
     #endregion
 
@@ -1017,8 +1019,8 @@ public class MainViewModel : ViewModelBase
     {
         // Show confirmation dialog
         bool result = CommonDialogWindow.ShowDialog(
-            "Are you sure you want to logout?",
-            "Logout Confirmation",
+            "로그아웃을 하시겠습니까?",
+            "로그아웃",
             CommonDialogWindow.DialogType.Question);
 
         if (result)
@@ -1147,7 +1149,7 @@ public class MainViewModel : ViewModelBase
 
         var confirm = CommonDialogWindow.ShowDialog(
             message: $"미션 {missionId}을(를) 취소하시겠습니까?",
-            title: "미션 취소 확인",
+            title: "미션 취소",
             type: CommonDialogWindow.DialogType.Question);
 
         if (!confirm)
@@ -1318,8 +1320,8 @@ public class MainViewModel : ViewModelBase
 
         var dialog = new CommonDialogWindow(string.Empty, "미션 경로 수정", CommonDialogWindow.DialogType.Info)
         {
-            Width = 560,
-            Height = 700
+            Width = 500,
+            Height = 660
         };
 
         var owner = Application.Current?
@@ -1355,7 +1357,7 @@ public class MainViewModel : ViewModelBase
             var panel = new StackPanel
             {
                 Orientation = Orientation.Vertical,
-                Margin = margin ?? new Thickness(0, 0, 0, 16)
+                Margin = margin ?? new Thickness(0, 0, 0, 12)
             };
 
             var label = new TextBlock
@@ -1452,6 +1454,7 @@ public class MainViewModel : ViewModelBase
                 .ToList();
 
             var items = new ObservableCollection<string>(nodeNames);
+            var suppressAutoOpen = true;
 
             void ApplyFilter(string? term)
             {
@@ -1513,8 +1516,13 @@ public class MainViewModel : ViewModelBase
                 var text = combo.Text ?? string.Empty;
                 ApplyFilter(text);
                 setter(text);
-                combo.IsDropDownOpen = !string.IsNullOrWhiteSpace(text);
+                if (!suppressAutoOpen)
+                {
+                    combo.IsDropDownOpen = !string.IsNullOrWhiteSpace(text);
+                }
             }));
+
+            combo.Loaded += (_, __) => suppressAutoOpen = false;
 
             return combo;
         }
@@ -1546,7 +1554,7 @@ public class MainViewModel : ViewModelBase
             Text = working.PriorityDescription,
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
-            Height = 80
+            Height = 50
         };
         StyleControl(descriptionBox);
         descriptionBox.TextChanged += (_, __) => working.PriorityDescription = descriptionBox.Text;
@@ -1791,6 +1799,43 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    private async Task ExecuteDeleteAllTemplates(object? parameter)
+    {
+        if (!MissionTemplates.Any())
+        {
+            return;
+        }
+
+        var confirmed = CommonDialogWindow.ShowDialog(
+            "미션 정보를 전체 삭제하시겠습니까?",
+            "전체 삭제",
+            CommonDialogWindow.DialogType.Warning);
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        MissionTemplates.Clear();
+        OnPropertyChanged(nameof(TemplateView));
+
+        try
+        {
+            await _fileService.SaveTemplatesAsync(MissionTemplates.ToList());
+            StatusText = "모든 미션 경로가 삭제되었습니다.";
+            ShowGeneralSnackbar("미션 경로가 모두 삭제되었습니다.");
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"미션 경로 전체 삭제 실패: {ex.Message}";
+            ShowGeneralSnackbar(StatusText);
+        }
+        finally
+        {
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
     private async Task ExecuteImportTemplates(object? parameter)
     {
         var openFileDialog = new OpenFileDialog
@@ -1813,10 +1858,12 @@ public class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(TemplateView));
                 await _fileService.SaveTemplatesAsync(MissionTemplates.ToList());
                 StatusText = $"{importedTemplates.Count}개의 미션 경로를 가져왔습니다.";
+                ShowGeneralSnackbar($"미션 경로를 가져왔습니다: {openFileDialog.FileName}");
             }
             catch (Exception ex)
             {
                 StatusText = $"미션 경로 가져오기 실패: {ex.Message}";
+                ShowGeneralSnackbar(StatusText);
             }
             finally
             {
@@ -1840,10 +1887,12 @@ public class MainViewModel : ViewModelBase
             {
                 await _fileService.ExportTemplatesAsync(MissionTemplates.ToList(), saveFileDialog.FileName);
                 StatusText = "미션 경로를 내보냈습니다.";
+                ShowGeneralSnackbar($"미션 경로를 내보냈습니다: {saveFileDialog.FileName}");
             }
             catch (Exception ex)
             {
                 StatusText = $"미션 경로 내보내기 실패: {ex.Message}";
+                ShowGeneralSnackbar(StatusText);
             }
             finally
             {

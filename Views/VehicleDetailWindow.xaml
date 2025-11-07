@@ -3,12 +3,27 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="차량 상세 정보"
-        Height="700" Width="900"
+        Height="650" Width="600"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         Icon="/icon/detail_green_logo_ico.ico">
+
+    <Window.Resources>
+        <Style x:Key="DetailValueBox" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
+        </Style>
+    </Window.Resources>
 
     <Border CornerRadius="16" Background="{StaticResource DarkBackground}" BorderBrush="#475569" BorderThickness="0.8" >
         <Border.Effect>
@@ -23,7 +38,7 @@
             </Grid.RowDefinitions>
 
             <!-- Title Bar -->
-            <Border Grid.Row="0" Background="{StaticResource CardBackground}" CornerRadius="16,16,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Border Grid.Row="0" Background="{StaticResource CardBackground}" CornerRadius="16,16,0,0" PreviewMouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid Margin="20,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <materialDesign:PackIcon Kind="CarInfo" Width="24" Height="24" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,12,0"/>
@@ -78,7 +93,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -97,40 +112,40 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="차량 이름 (name)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="IP 주소 (ipaddress)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding IpAddress}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding IpAddress, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="포트 번호 (port)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Port}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Port, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="시뮬레이션 모드 (issimulated)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding IsSimulated}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding IsSimulated, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="운영 상태 (operatingstate)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding OperatingStateText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding OperatingStateText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="5" Grid.Column="0" Text="차량 상태 (vehicle.state)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding VehicleStateText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding VehicleStateText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="6" Grid.Column="0" Text="청소/순찰 기능 (coverage)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Coverage}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Coverage, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="7" Grid.Column="0" Text="전방향 이동 (isOmni)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding IsOmni}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding IsOmni, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="8" Grid.Column="0" Text="강제 충전 (forceCharge)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ForceCharge}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ForceCharge, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="9" Grid.Column="0" Text="차량 타입 (vehicle.type)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding VehicleType}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding VehicleType, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="10" Grid.Column="0" Text="서버 연결 상태 (connection.ok)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding ConnectionOk}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding ConnectionOk, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="11" Grid.Column="0" Text="마지막 업데이트 (timestamp)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding LastUpdate, StringFormat='yyyy-MM-dd HH:mm:ss'}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding LastUpdate, StringFormat='yyyy-MM-dd HH:mm:ss', Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -142,7 +157,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -157,28 +172,28 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="현재 위치 노드 (currentnode.name)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentNodeName}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CurrentNodeName, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="현재 노드 ID (currentnode.id)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentNodeId}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CurrentNodeId, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="좌표 X, Y (location.coord)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CoordinatesText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CoordinatesText, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="오차 (location.uncertainty)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding UncertaintyText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding UncertaintyText, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="방향 (location.course)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding CourseText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CourseText, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="5" Grid.Column="0" Text="맵 이름 (location.map)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MapName}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding MapName, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="6" Grid.Column="0" Text="그룹 (location.group)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding GroupName}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding GroupName, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="7" Grid.Column="0" Text="이동 거리 (traveleddistance)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding TraveledDistanceText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding TraveledDistanceText, Mode=OneWay}" TextWrapping="Wrap" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -190,7 +205,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -205,28 +220,28 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="미션 ID (missionid)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MissionId}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MissionId, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="미션 From (mission.info.from)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MissionFrom}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MissionFrom, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="미션 To (mission.info.to)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MissionTo}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MissionTo, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="최종 목적지 (mission.info.final)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding MissionFinal}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding MissionFinal, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="목표 노드" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding TargetNode}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding TargetNode, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="5" Grid.Column="0" Text="미션 차단 여부 (missionblocked)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MissionBlocked}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding MissionBlocked, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="6" Grid.Column="0" Text="적재 상태 (isloaded)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding LoadStatusText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding LoadStatusText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="7" Grid.Column="0" Text="페이로드 (payload)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding Payload}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Payload, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -238,7 +253,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -258,17 +273,17 @@
                                                HorizontalAlignment="Left"
                                                Width="{Binding BatteryLevel, Converter={StaticResource BatteryLevelToWidthConverter}}"/>
                                     </Border>
-                                    <TextBlock Text="{Binding BatteryLevel, StringFormat={}{0}%}"
-                                              Style="{StaticResource BodyText}"
-                                              FontWeight="SemiBold"
-                                              VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding BatteryLevel, StringFormat={}{0}%}"
+                                             Style="{StaticResource DetailValueBox}"
+                                             FontWeight="SemiBold"
+                                             VerticalAlignment="Center"/>
                                 </StackPanel>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="배터리 전압 (battery.info.voltage)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding BatteryVoltage}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BatteryVoltage, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="최대 온도 (battery.info.maxtemperature)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BatteryMaxTemp}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding BatteryMaxTemp, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -280,7 +295,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -293,22 +308,22 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="현재 액션 이름 (action.name)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ActionName}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ActionName, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="소스 타입 (action.sourcetype)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ActionSourceType}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ActionSourceType, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="소스 ID (action.sourceid)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ActionSourceId}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ActionSourceId, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="도착 시간 (action.args.arrivaldate)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ArrivalDate}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ArrivalDate, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="절대 도착 시간 (action.args.absarrivaldate)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding AbsArrivalDate}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding AbsArrivalDate, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="5" Grid.Column="0" Text="액션 노드 ID (action.args.nodeid)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ActionNodeId}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding ActionNodeId, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -320,7 +335,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -332,19 +347,19 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Lock UUID (lock.UUID)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LockUuid}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding LockUuid, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="소유자 앱 (lock.owner.app)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LockOwnerApp}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LockOwnerApp, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="소유자 PC (lock.owner.pc)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LockOwnerPc}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LockOwnerPc, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="소유자 사용자 (lock.owner.user)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LockOwnerUser}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LockOwnerUser, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="연결 상태 (connection.ok)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ConnectionOk}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ConnectionOk, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -356,7 +371,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -368,19 +383,19 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="에러 목록 (state.errors)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ErrorsText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ErrorsText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="알람 목록 (alarms)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AlarmsText}" Style="{StaticResource BodyText}" Margin="0,6" TextWrapping="Wrap"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding AlarmsText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6" TextWrapping="Wrap"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="에러 비트 (state.error.bits)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ErrorBitsText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ErrorBitsText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="에러 상세 레이블 (state.errorDetailsLabel)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ErrorDetailsLabelText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ErrorDetailsLabelText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="에러 상세정보 (state.errorDetails)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ErrorDetailsText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding ErrorDetailsText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -392,7 +407,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -401,10 +416,10 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="차량 실제 외형 (state.body.shape)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding BodyShapeText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding BodyShapeText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="안전영역 포함 폴리곤 (state.vehicle.shape)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleShapeText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding VehicleShapeText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -416,7 +431,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -425,10 +440,10 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="트래픽 정보 (state.traffic.info)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TrafficInfoText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrafficInfoText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="미션 진행률 (state.mission.progress)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MissionProgressText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MissionProgressText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -440,7 +455,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -450,13 +465,13 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="공유 메모리 Out (state.sharedMemory.out)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SharedMemoryOutText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SharedMemoryOutText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="공유 메모리 In (state.sharedMemory.in)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SharedMemoryInText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SharedMemoryInText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="메시지 큐 (state.messages)" Style="{StaticResource CaptionText}" Margin="0,6"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MessagesText}" Style="{StaticResource BodyText}" Margin="0,6"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MessagesText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,6"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -468,7 +483,7 @@
 
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
@@ -477,10 +492,10 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="누적 가동 시간" Style="{StaticResource CaptionText}" Margin="0,8"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding UptimeText}" Style="{StaticResource BodyText}" Margin="0,8"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding UptimeText, Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,8"/>
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="마지막 업데이트" Style="{StaticResource CaptionText}" Margin="0,8"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LastUpdate, StringFormat='yyyy-MM-dd HH:mm:ss'}" Style="{StaticResource BodyText}" Margin="0,8"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LastUpdate, StringFormat='yyyy-MM-dd HH:mm:ss', Mode=OneWay}" Style="{StaticResource DetailValueBox}" Margin="0,8"/>
                             </Grid>
                         </StackPanel>
                     </Border>

@@ -50,9 +50,18 @@ public partial class VehicleDetailWindow : Window
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount == 1)
+        if (e.ClickCount != 1 || e.LeftButton != MouseButtonState.Pressed)
         {
-            this.DragMove();
+            return;
+        }
+
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            // Ignore rare timing issues when DragMove is invoked too early.
         }
     }
 

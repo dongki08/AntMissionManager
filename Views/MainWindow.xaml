@@ -154,7 +154,7 @@
                         Padding="16,0"
                         Margin="5,10,12,10"
                         HorizontalAlignment="Left"
-                        MaxWidth="360"
+                        MaxWidth="600"
                         BorderBrush="{StaticResource SurfaceBackground}"
                         
                         Visibility="{Binding IsSnackbarVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -173,7 +173,7 @@
                 </Border>
 
                 <Button Grid.Column="1"
-                        Content="Logout"
+                        Content="로그아웃"
                         Width="100"
                         Height="32"
                         HorizontalAlignment="Right"
@@ -307,6 +307,11 @@
 
                                 <!-- Import/Export Buttons -->
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="전체 삭제"
+                                           Width="90"
+                                           Style="{StaticResource ModernDangerButton}"
+                                           Command="{Binding DeleteAllTemplatesCommand}"
+                                           Margin="0,0,16,0"/>
                                     <Button Content="불러오기"
                                            Width="80"
                                            Style="{StaticResource ModernPrimaryButton}"

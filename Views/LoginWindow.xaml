@@ -83,7 +83,7 @@
                 
                 <!-- Header Section -->
                 <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,0">
-                    <Border Background="{StaticResource PrimaryBrush}"
+                    <Border Background="Transparent"
                            Width="60" Height="60"
                            CornerRadius="40"
                            HorizontalAlignment="Center"
@@ -94,7 +94,7 @@
                                VerticalAlignment="Center"/>
                     </Border>
                     
-                    <TextBlock Text="Welcome Back" 
+                    <TextBlock Text="JACOBIAN" 
                               Style="{StaticResource HeadingText}"
                               HorizontalAlignment="Center"
                               FontSize="28"/>
