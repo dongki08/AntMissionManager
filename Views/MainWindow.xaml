@@ -1240,15 +1240,20 @@
                     </Grid.RowDefinitions>
                     
                     <!-- Vehicle Control Panel -->
-                    <Border Grid.Row="0" Style="{StaticResource GlassCard}" Margin="24,24,24,16">
+                    <Border x:Name="VehicleActionBar"
+                            Grid.Row="0"
+                            Style="{StaticResource GlassCard}"
+                            Margin="24,24,24,16"
+                            MouseLeftButtonDown="VehicleActionBar_MouseLeftButtonDown">
                         <StackPanel>
                             <!-- Vehicle Commands Section -->
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <Border Background="{StaticResource SurfaceBackground}" 
-                                       CornerRadius="8" 
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="8"
                                        BorderBrush="{StaticResource BorderBrush}"
                                        BorderThickness="1">
-                                    <ComboBox SelectedValue="{Binding SelectedVehicle}"
+                                    <ComboBox x:Name="VehicleSelectorCombo"
+                                             SelectedValue="{Binding SelectedVehicle}"
                                              ItemsSource="{Binding Vehicles}"
                                              DisplayMemberPath="Name"
                                              SelectedValuePath="Name"
@@ -1257,16 +1262,19 @@
                                              Foreground="{StaticResource PrimaryText}"
                                              Width="160"
                                              Padding="12,8"
+                                             DropDownOpened="VehicleActionCombo_DropDownOpened"
+                                             DropDownClosed="VehicleActionCombo_DropDownClosed"
                                              materialDesign:HintAssist.Hint="차량 선택"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
                                 
-                                <Border Background="{StaticResource SurfaceBackground}" 
-                                       CornerRadius="8" 
+                                <Border Background="{StaticResource SurfaceBackground}"
+                                       CornerRadius="8"
                                        BorderBrush="{StaticResource BorderBrush}"
                                        BorderThickness="1"
                                        Margin="12,0,0,0">
-                                    <ComboBox SelectedItem="{Binding SelectedInsertNodeItem}"
+                                    <ComboBox x:Name="InsertNodeSelectorCombo"
+                                             SelectedItem="{Binding SelectedInsertNodeItem}"
                                              Text="{Binding InsertNodeSearchText, UpdateSourceTrigger=PropertyChanged}"
                                              IsDropDownOpen="{Binding IsInsertNodeDropDownOpen}"
                                              ItemsSource="{Binding FilteredInsertNodes}"
@@ -1279,6 +1287,8 @@
                                              IsEditable="True"
                                              IsTextSearchEnabled="False"
                                              StaysOpenOnEdit="True"
+                                             DropDownOpened="VehicleActionCombo_DropDownOpened"
+                                             DropDownClosed="VehicleActionCombo_DropDownClosed"
                                              materialDesign:HintAssist.Hint="노드 선택"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>

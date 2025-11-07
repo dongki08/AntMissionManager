@@ -12,6 +12,8 @@ namespace AntManager.Views;
 
 public partial class MainWindow : Window
 {
+    private bool _isVehicleActionPopupOpen;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -331,6 +333,22 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void VehicleActionBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // 차량 액션바 클릭 시 선택 해제 방지
+        e.Handled = true;
+    }
+
+    private void VehicleActionCombo_DropDownOpened(object sender, EventArgs e)
+    {
+        _isVehicleActionPopupOpen = true;
+    }
+
+    private void VehicleActionCombo_DropDownClosed(object sender, EventArgs e)
+    {
+        _isVehicleActionPopupOpen = false;
+    }
+
     private void TemplateGridBackground_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         // 데이터그리드가 아닌 영역 클릭 시 선택 해제
@@ -356,7 +374,7 @@ public partial class MainWindow : Window
             TemplateDataGrid.UnselectAll();
         }
 
-        if (VehicleDataGrid != null && VehicleDataGrid.SelectedItem != null && !IsDescendantOf(source, VehicleDataGrid))
+        if (VehicleDataGrid != null && VehicleDataGrid.SelectedItem != null && !_isVehicleActionPopupOpen && !IsDescendantOf(source, VehicleDataGrid) && !IsVehicleActionBar(source))
         {
             VehicleDataGrid.UnselectAllCells();
             VehicleDataGrid.UnselectAll();
@@ -388,6 +406,21 @@ public partial class MainWindow : Window
         while (source != null)
         {
             if (source is FrameworkElement element && element.Name == "TemplateActionBar")
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
+    }
+
+    private static bool IsVehicleActionBar(DependencyObject? source)
+    {
+        while (source != null)
+        {
+            if (source is FrameworkElement element && element.Name == "VehicleActionBar")
             {
                 return true;
             }
