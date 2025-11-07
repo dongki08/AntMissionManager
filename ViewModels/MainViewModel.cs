@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -47,7 +48,6 @@ public class MainViewModel : ViewModelBase
     private const int CompletedMissionDefaultOffsetMinutes = 3;
     private string _missionSortProperty = nameof(MissionInfo.MissionIdSortValue);
     private ListSortDirection _missionSortDirection = ListSortDirection.Descending;
-    private bool _isFullMissionHistoryLoaded;
     private DateTime _lastFullMissionHistoryRefresh = DateTime.MinValue;
     private readonly TimeSpan _fullMissionHistoryRefreshInterval = TimeSpan.FromSeconds(10);
     private Task? _fullMissionHistoryLoadTask;
@@ -175,6 +175,8 @@ public class MainViewModel : ViewModelBase
         // LoginViewModel에서 이미 로그인했으므로 자동 연결 불필요
         // 연결 상태 확인만 수행
         UpdateConnectionStatus();
+
+        MissionFilterEnd = DateTime.Now;
     }
 
     private void UpdateConnectionStatus()
@@ -350,6 +352,11 @@ public class MainViewModel : ViewModelBase
             }
             else
             {
+                if ((value?.IsAll ?? false) && !(value?.IsDefault ?? true))
+                {
+                    MissionFilterEnd = DateTime.Now;
+                }
+
                 RefreshMissionFilter();
 
                 if (value?.RequiresFullHistory ?? false)
@@ -367,10 +374,17 @@ public class MainViewModel : ViewModelBase
         get => _missionFilterStart;
         set
         {
-            if (SetProperty(ref _missionFilterStart, value))
+            if (!SetProperty(ref _missionFilterStart, value))
             {
-                RefreshMissionFilter();
+                return;
             }
+
+            if (SelectedMissionFilter?.RequiresFullHistory ?? false)
+            {
+                _ = EnsureFullMissionHistoryAsync();
+            }
+
+            RefreshMissionFilter();
         }
     }
 
@@ -379,10 +393,17 @@ public class MainViewModel : ViewModelBase
         get => _missionFilterEnd;
         set
         {
-            if (SetProperty(ref _missionFilterEnd, value))
+            if (!SetProperty(ref _missionFilterEnd, value))
             {
-                RefreshMissionFilter();
+                return;
             }
+
+            if (SelectedMissionFilter?.RequiresFullHistory ?? false)
+            {
+                _ = EnsureFullMissionHistoryAsync();
+            }
+
+            RefreshMissionFilter();
         }
     }
 
@@ -1022,7 +1043,6 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        _isFullMissionHistoryLoaded = false;
         _lastFullMissionHistoryRefresh = DateTime.MinValue;
 
         if (!isAutoRefresh)
@@ -2060,7 +2080,6 @@ public class MainViewModel : ViewModelBase
                     RefreshMissionFilter();
                 });
 
-                _isFullMissionHistoryLoaded = false;
 
                 if (!isAutoRefresh)
                 {
@@ -2088,7 +2107,6 @@ public class MainViewModel : ViewModelBase
                 RefreshMissionFilter();
             });
 
-            _isFullMissionHistoryLoaded = true;
 
             if (!isAutoRefresh)
             {
@@ -2097,7 +2115,6 @@ public class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            _isFullMissionHistoryLoaded = false;
 
             if (!isAutoRefresh)
             {
@@ -2213,9 +2230,20 @@ public class MainViewModel : ViewModelBase
             }
         }
 
-        if (!(filter?.IsDefault ?? false))
+        var filterTimestamp = mission.CreatedAt != DateTime.MinValue
+            ? mission.CreatedAt
+            : mission.QueueTimestamp;
+
+        if (filterTimestamp == DateTime.MinValue
+            && TryParseMissionDisplayTimestamp(mission.CreatedAtDisplay, out var displayTimestamp))
         {
-            var timestamp = mission.QueueTimestamp;
+            filterTimestamp = displayTimestamp;
+        }
+
+        var hasDateFilter = MissionFilterStart.HasValue || MissionFilterEnd.HasValue;
+
+        if (!(filter?.IsDefault ?? false) && hasDateFilter)
+        {
             var startBoundary = GetMissionFilterStartBoundary();
             var endBoundary = GetMissionFilterEndBoundary();
 
@@ -2224,7 +2252,29 @@ public class MainViewModel : ViewModelBase
                 (startBoundary, endBoundary) = (endBoundary, startBoundary);
             }
 
-            if (timestamp < startBoundary || timestamp > endBoundary)
+            if (filterTimestamp < startBoundary || filterTimestamp > endBoundary)
+            {
+                e.Accepted = false;
+                return;
+            }
+        }
+
+        if (hasDateFilter)
+        {
+            var startBoundary = MissionFilterStart.HasValue
+                ? NormalizeStartBoundary(MissionFilterStart.Value)
+                : DateTime.MinValue;
+
+            var endBoundary = MissionFilterEnd.HasValue
+                ? NormalizeEndBoundary(MissionFilterEnd.Value)
+                : DateTime.MaxValue;
+
+            if (endBoundary < startBoundary)
+            {
+                (startBoundary, endBoundary) = (endBoundary, startBoundary);
+            }
+
+            if (filterTimestamp < startBoundary || filterTimestamp > endBoundary)
             {
                 e.Accepted = false;
                 return;
@@ -2232,6 +2282,21 @@ public class MainViewModel : ViewModelBase
         }
 
         e.Accepted = true;
+    }
+
+    private static DateTime NormalizeStartBoundary(DateTime value)
+    {
+        return value.TimeOfDay == TimeSpan.Zero ? value.Date : value;
+    }
+
+    private static DateTime NormalizeEndBoundary(DateTime value)
+    {
+        if (value.TimeOfDay == TimeSpan.Zero)
+        {
+            return value.Date.AddDays(1).AddTicks(-1);
+        }
+
+        return value;
     }
 
     private DateTime GetMissionFilterStartBoundary()
@@ -2260,6 +2325,39 @@ public class MainViewModel : ViewModelBase
 
         return value;
     }
+
+    private static bool TryParseMissionDisplayTimestamp(string? text, out DateTime timestamp)
+    {
+        timestamp = DateTime.MinValue;
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        const DateTimeStyles styles = DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal;
+
+        if (DateTime.TryParse(text, CultureInfo.InvariantCulture, styles, out var parsed))
+        {
+            timestamp = parsed;
+            return true;
+        }
+
+        if (DateTime.TryParse(text, CultureInfo.CurrentCulture, styles, out parsed))
+        {
+            timestamp = parsed;
+            return true;
+        }
+
+        if (DateTime.TryParse(text, CultureInfo.GetCultureInfo("ko-KR"), styles, out parsed))
+        {
+            timestamp = parsed;
+            return true;
+        }
+
+        return false;
+    }
+
     private void UpdateMissionStatistics()
     {
         IEnumerable<MissionInfo> missionSource =

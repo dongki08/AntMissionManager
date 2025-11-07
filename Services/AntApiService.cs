@@ -333,9 +333,11 @@ public class AntApiService
                         var createdAt = ParseMissionTimestamp(createdRaw);
 
                         var arrivingDisplay = FormatMissionTimestampRaw(arrivingRaw);
-                        var createdDisplay = !string.IsNullOrEmpty(arrivingDisplay)
-                            ? arrivingDisplay
-                            : FormatMissionTimestampRaw(createdRaw);
+                        var createdDisplay = FormatMissionTimestampRaw(createdRaw);
+                        if (string.IsNullOrEmpty(createdDisplay))
+                        {
+                            createdDisplay = arrivingDisplay;
+                        }
 
                         var mission = new MissionInfo
                         {
@@ -348,7 +350,7 @@ public class AntApiService
                             TransportState = missionData.transportstate ?? 0,
                             Priority = missionData.priority ?? 0,
                             ArrivingTime = arrivingTime ?? createdAt,
-                            CreatedAt = arrivingTime ?? createdAt ?? DateTime.MinValue,
+                            CreatedAt = createdAt ?? arrivingTime ?? DateTime.MinValue,
                             CreatedAtDisplay = createdDisplay
                         };
                         missions.Add(mission);
@@ -1489,9 +1491,11 @@ public class AntApiService
                         var createdAt = ParseMissionTimestamp(createdRaw);
 
                         var arrivingDisplay = FormatMissionTimestampRaw(arrivingRaw);
-                        var createdDisplay = !string.IsNullOrEmpty(arrivingDisplay)
-                            ? arrivingDisplay
-                            : FormatMissionTimestampRaw(createdRaw);
+                        var createdDisplay = FormatMissionTimestampRaw(createdRaw);
+                        if (string.IsNullOrEmpty(createdDisplay))
+                        {
+                            createdDisplay = arrivingDisplay;
+                        }
 
                         var mission = new MissionInfo
                         {
@@ -1504,7 +1508,7 @@ public class AntApiService
                             TransportState = missionData.transportstate ?? 0,
                             Priority = missionData.priority ?? 0,
                             ArrivingTime = arrivingTime ?? createdAt,
-                            CreatedAt = arrivingTime ?? createdAt ?? DateTime.MinValue,
+                            CreatedAt = createdAt ?? arrivingTime ?? DateTime.MinValue,
                             CreatedAtDisplay = createdDisplay
                         };
                         missions.Add(mission);
