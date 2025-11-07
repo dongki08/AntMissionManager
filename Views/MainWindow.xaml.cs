@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using AntManager.Models;
 using AntManager.ViewModels;
 
@@ -15,6 +16,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+        PreviewMouseDown += MainWindow_PreviewMouseDown;
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -336,5 +338,63 @@ public partial class MainWindow : Window
         {
             vm.SelectedTemplate = null;
         }
+    }
+
+    private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        var source = e.OriginalSource as DependencyObject;
+
+        if (MissionDataGrid != null && MissionDataGrid.SelectedItem != null && !IsDescendantOf(source, MissionDataGrid))
+        {
+            MissionDataGrid.UnselectAllCells();
+            MissionDataGrid.UnselectAll();
+        }
+
+        if (TemplateDataGrid != null && TemplateDataGrid.SelectedItem != null && !IsDescendantOf(source, TemplateDataGrid) && !IsTemplateActionBar(source))
+        {
+            TemplateDataGrid.UnselectAllCells();
+            TemplateDataGrid.UnselectAll();
+        }
+
+        if (VehicleDataGrid != null && VehicleDataGrid.SelectedItem != null && !IsDescendantOf(source, VehicleDataGrid))
+        {
+            VehicleDataGrid.UnselectAllCells();
+            VehicleDataGrid.UnselectAll();
+        }
+
+        if (AlarmDataGrid != null && AlarmDataGrid.SelectedItem != null && !IsDescendantOf(source, AlarmDataGrid))
+        {
+            AlarmDataGrid.UnselectAllCells();
+            AlarmDataGrid.UnselectAll();
+        }
+    }
+
+    private static bool IsDescendantOf(DependencyObject? source, DependencyObject target)
+    {
+        while (source != null)
+        {
+            if (ReferenceEquals(source, target))
+            {
+                return true;
+            }
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
+    }
+
+    private static bool IsTemplateActionBar(DependencyObject? source)
+    {
+        while (source != null)
+        {
+            if (source is FrameworkElement element && element.Name == "TemplateActionBar")
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
     }
 }

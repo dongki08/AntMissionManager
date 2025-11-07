@@ -82,12 +82,12 @@ public class MissionInfo : INotifyPropertyChanged
         {
             return NavigationState switch
             {
-                1 => "대기(1)",
-                2 => "거부(2)",
-                3 => "진행중(3)",
-                4 => "완료(4)",
-                5 => "취소(5)",
-                0 => "수신(0)",
+                1 => "대기",
+                2 => "거부",
+                3 => "진행중",
+                4 => "완료",
+                5 => "취소",
+                0 => "수신",
                 _ => $"알 수 없음 ({NavigationState})"
             };
         }
