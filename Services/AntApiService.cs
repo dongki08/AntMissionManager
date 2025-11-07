@@ -302,14 +302,6 @@ public class AntApiService
                 url += "?" + string.Join("&", queryParams);
             }
 
-            var decodedUrl = Uri.UnescapeDataString(url);
-            var decodedUrlLog = $"[AntApiService] missions request url (decoded): {decodedUrl}";
-            var encodedUrlLog = $"[AntApiService] missions request url (encoded): {url}";
-            Debug.WriteLine(decodedUrlLog);
-            Debug.WriteLine(encodedUrlLog);
-            Console.WriteLine(decodedUrlLog);
-            Console.WriteLine(encodedUrlLog);
-
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {_token}");
 

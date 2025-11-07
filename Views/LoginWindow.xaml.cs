@@ -26,9 +26,18 @@ public partial class LoginWindow : Window
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount == 1)
+        if (e.ClickCount != 1 || e.LeftButton != MouseButtonState.Pressed)
         {
-            this.DragMove();
+            return;
+        }
+
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            // Ignore rare cases where DragMove is triggered before the window is ready.
         }
     }
     

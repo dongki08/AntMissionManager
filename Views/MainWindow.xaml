@@ -149,10 +149,10 @@
                 </Grid.ColumnDefinitions>
 
                 <Border Grid.Column="0"
-                        Background="Transparent"
+                        Background="{StaticResource SurfaceBackground}"
                         CornerRadius="8"
-                        Padding="16,10"
-                        Margin="5,6,12,6"
+                        Padding="16,0"
+                        Margin="5,10,12,10"
                         HorizontalAlignment="Left"
                         MaxWidth="360"
                         BorderBrush="{StaticResource SurfaceBackground}"
@@ -223,7 +223,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Map" Width="18" Height="18"
                                                Foreground="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
-                        <TextBlock Text="Map View"
+                        <TextBlock Text="맵 모니터링"
                                   FontSize="14" FontWeight="SemiBold"
                                   Foreground="{StaticResource PrimaryText}"/>
                     </StackPanel>
@@ -242,7 +242,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="MapMarker" Width="18" Height="18" 
                                                Foreground="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
-                        <TextBlock Text="Mission Router" 
+                        <TextBlock Text="미션 등록" 
                                   FontSize="14" FontWeight="SemiBold"
                                   Foreground="{StaticResource PrimaryText}"/>
                     </StackPanel>
@@ -709,11 +709,67 @@
                                 Padding="0, 12, 0, 0"
                                 Visibility="{Binding SelectedTemplate, Converter={StaticResource NullToVisibilityConverter}}"
                                 MouseLeftButtonDown="TemplateActionBar_MouseLeftButtonDown">
-                            <Border Background="{StaticResource DarkBackground}"
-                                   CornerRadius="12"
+                            <Border CornerRadius="14"
                                    BorderBrush="{StaticResource BorderBrush}"
                                    BorderThickness="1"
-                                   Padding="12">
+                                   Padding="16"
+                                   Background="#F01E293B">
+                                <Border.Resources>
+                                    <Style x:Key="TemplateActionButtonStyle" TargetType="Button">
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="FontSize" Value="15"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Height" Value="38"/>
+                                        <Setter Property="MinWidth" Value="30"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="Padding" Value="8,0"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Grid>
+                                                        <Border x:Name="Base"
+                                                               Background="{TemplateBinding Background}"
+                                                               CornerRadius="10"
+                                                               SnapsToDevicePixels="True"/>
+                                                        <Border x:Name="HoverOverlay"
+                                                               Background="#FFFFFFFF"
+                                                               CornerRadius="10"
+                                                               Opacity="0"/>
+                                                        <Border x:Name="PressedOverlay"
+                                                               Background="#000000"
+                                                               CornerRadius="10"
+                                                               Opacity="0"/>
+                                                        <ContentPresenter HorizontalAlignment="Center"
+                                                                          VerticalAlignment="Center"
+                                                                          Margin="6,0"/>
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter TargetName="Base" Property="Opacity" Value="0.35"/>
+                                                            <Setter TargetName="HoverOverlay" Property="Opacity" Value="0"/>
+                                                            <Setter TargetName="PressedOverlay" Property="Opacity" Value="0"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="HoverOverlay" Property="Opacity" Value="0.16"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="False">
+                                                            <Setter TargetName="HoverOverlay" Property="Opacity" Value="0"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsPressed" Value="True">
+                                                            <Setter TargetName="HoverOverlay" Property="Opacity" Value="0.22"/>
+                                                            <Setter TargetName="PressedOverlay" Property="Opacity" Value="0.18"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsPressed" Value="False">
+                                                            <Setter TargetName="PressedOverlay" Property="Opacity" Value="0"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Border.Resources>
+
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                         <TextBlock Text="선택된 셀: "
@@ -736,96 +792,26 @@
                                         <Button Grid.Column="0"
                                                Content="실행"
                                                Background="{StaticResource SuccessBrush}"
-                                               Foreground="White"
-                                               BorderThickness="0"
-                                               Height="32"
-                                               FontWeight="ExtraBold"
-                                               FontSize="15"
-                                               Margin="0,0,4,0"
-                                               Cursor="Hand"
+                                               Margin="0,0,6,0"
                                                Click="ExecuteTemplate_Click"
-                                               Tag="{Binding SelectedTemplate}">
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="Button">
-                                                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#16A34A"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
+                                               Style="{StaticResource TemplateActionButtonStyle}"
+                                               Tag="{Binding SelectedTemplate}"/>
 
-                                <Button Grid.Column="1"
-                                       Content="수정"
-                                       Background="{StaticResource WarningBrush}"
-                                       Foreground="White"
-                                       BorderThickness="0"
-                                       Height="32"
-                                       FontSize="15"
-                                       Margin="2,0"
-                                       Cursor="Hand"
-                                       Click="EditTemplate_Click"
-                                       Tag="{Binding SelectedTemplate}">
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="Button">
-                                                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#D97706"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
+                                        <Button Grid.Column="1"
+                                               Content="수정"
+                                               Background="{StaticResource WarningBrush}"
+                                               Margin="3,0"
+                                               Click="EditTemplate_Click"
+                                               Style="{StaticResource TemplateActionButtonStyle}"
+                                               Tag="{Binding SelectedTemplate}"/>
 
-                                <Button Grid.Column="2"
-                                       Content="삭제"
-                                       Background="{StaticResource ErrorBrush}"
-                                       Foreground="White"
-                                       BorderThickness="0"
-                                       Height="32"
-                                       FontSize="15"
-                                       Margin="4,0,0,0"
-                                       Cursor="Hand"
-                                       Click="DeleteTemplate_Click"
-                                       Tag="{Binding SelectedTemplate}">
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="Button">
-                                                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#DC2626"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
+                                        <Button Grid.Column="2"
+                                               Content="삭제"
+                                               Background="{StaticResource ErrorBrush}"
+                                               Margin="6,0,0,0"
+                                               Click="DeleteTemplate_Click"
+                                               Style="{StaticResource TemplateActionButtonStyle}"
+                                               Tag="{Binding SelectedTemplate}"/>
                                     </Grid>
                                 </StackPanel>
                             </Border>
@@ -841,7 +827,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ViewDashboard" Width="18" Height="18" 
                                                Foreground="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
-                        <TextBlock Text="Mission Dashboard" 
+                        <TextBlock Text="미션 정보" 
                                   FontSize="14" FontWeight="SemiBold"
                                   Foreground="{StaticResource PrimaryText}"/>
                     </StackPanel>
@@ -975,9 +961,7 @@
                                                                  VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Total" Style="{StaticResource CaptionText}" />
-                                        <TextBlock Text="Missions" Style="{StaticResource CaptionText}"
-                                                   Margin="0,-2,0,0" />
+                                        <TextBlock Text="전체 미션" Style="{StaticResource CaptionText}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding TotalMissions}"
@@ -1004,9 +988,7 @@
                                                                  VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Active" Style="{StaticResource CaptionText}" />
-                                        <TextBlock Text="Running" Style="{StaticResource CaptionText}"
-                                                   Margin="0,-2,0,0" />
+                                        <TextBlock Text="진행중 미션" Style="{StaticResource CaptionText}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding RunningMissions}"
@@ -1033,9 +1015,7 @@
                                                                  VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Pending" Style="{StaticResource CaptionText}" />
-                                        <TextBlock Text="Waiting" Style="{StaticResource CaptionText}"
-                                                   Margin="0,-2,0,0" />
+                                        <TextBlock Text="대기 미션" Style="{StaticResource CaptionText}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding PendingMissions}"
@@ -1062,9 +1042,7 @@
                                                                  VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Done" Style="{StaticResource CaptionText}" />
-                                        <TextBlock Text="Completed" Style="{StaticResource CaptionText}"
-                                                   Margin="0,-2,0,0" />
+                                        <TextBlock Text="완료 미션" Style="{StaticResource CaptionText}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding CompletedMissions}"
@@ -1091,9 +1069,7 @@
                                                                  VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Cancelled" Style="{StaticResource CaptionText}" />
-                                        <TextBlock Text="Missions" Style="{StaticResource CaptionText}"
-                                                   Margin="0,-2,0,0" />
+                                        <TextBlock Text="취소 미션" Style="{StaticResource CaptionText}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding CancelledMissions}"
@@ -1122,8 +1098,7 @@
                                                            Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Mission Queue" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
-                                    <TextBlock Text="Active and pending missions" Style="{StaticResource CaptionText}" Margin="0"/>
+                                    <TextBlock Text="미션 리스트" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
                                 </StackPanel>
                             </StackPanel>
                             
@@ -1140,24 +1115,26 @@
                                          Sorting="MissionDataGrid_Sorting"
                                          Loaded="MissionDataGrid_Loaded">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Mission ID" Binding="{Binding MissionId}" Width="0.8*" SortMemberPath="MissionIdSortValue" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding MissionType}" Width="1.2*" SortMemberPath="MissionType" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="From" Binding="{Binding FromNode}" Width="*" SortMemberPath="FromNode" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="To" Binding="{Binding ToNode}" Width="*" SortMemberPath="ToNode" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Vehicle" Binding="{Binding AssignedVehicle}" Width="1.1*" SortMemberPath="AssignedVehicle" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Nav Status" Width="1.3*" SortMemberPath="NavigationStateText" Binding="{Binding NavigationStateText}" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Transport" Binding="{Binding TransportStateText}" Width="1.1*" SortMemberPath="TransportStateText" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="0.7*" SortMemberPath="Priority" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="Created" Binding="{Binding CreatedAtDisplay}" Width="1.5*" SortMemberPath="CreatedAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTemplateColumn Header="Actions" Width="*">
+                                        <DataGridTextColumn Header="미션 아이디" Binding="{Binding MissionId}" Width="0.8*" SortMemberPath="MissionIdSortValue" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="타입" Binding="{Binding MissionType}" Width="1.2*" SortMemberPath="MissionType" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="출발지" Binding="{Binding FromNode}" Width="*" SortMemberPath="FromNode" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="도착지" Binding="{Binding ToNode}" Width="*" SortMemberPath="ToNode" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="차량" Binding="{Binding AssignedVehicle}" Width="1.1*" SortMemberPath="AssignedVehicle" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="미션 상태" Width="1.3*" SortMemberPath="NavigationStateText" Binding="{Binding NavigationStateText}" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="차량 상태" Binding="{Binding TransportStateText}" Width="1.1*" SortMemberPath="TransportStateText" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="우선 순위" Binding="{Binding Priority}" Width="0.7*" SortMemberPath="Priority" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="생성 일자" Binding="{Binding CreatedAtDisplay}" Width="1.5*" SortMemberPath="CreatedAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTemplateColumn Header="액션" Width="*">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Button Content="Cancel" 
+                                                            FontWeight="Bold"
                                                            Background="{StaticResource ErrorBrush}"
                                                            Foreground="White"
                                                            BorderThickness="0"
                                                            Height="28"
                                                            Padding="12,4"
+                                                           Margin="10,0,10,0"
                                                            FontSize="11"
                                                            Cursor="Hand"
                                                            Command="{Binding DataContext.CancelMissionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -1199,7 +1176,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Car" Width="18" Height="18" 
                                                Foreground="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
-                        <TextBlock Text="Vehicle Management" 
+                        <TextBlock Text="차량 정보" 
                                   FontSize="14" FontWeight="SemiBold"
                                   Foreground="{StaticResource PrimaryText}"/>
                     </StackPanel>
@@ -1229,7 +1206,7 @@
                                              Foreground="{StaticResource PrimaryText}"
                                              Width="160"
                                              Padding="12,8"
-                                             materialDesign:HintAssist.Hint="Select Vehicle"
+                                             materialDesign:HintAssist.Hint="차량 선택"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
                                 
@@ -1251,16 +1228,16 @@
                                              IsEditable="True"
                                              IsTextSearchEnabled="False"
                                              StaysOpenOnEdit="True"
-                                             materialDesign:HintAssist.Hint="Insert Node"
+                                             materialDesign:HintAssist.Hint="노드 선택"
                                              materialDesign:HintAssist.Foreground="{StaticResource MutedText}"/>
                                 </Border>
                                 
-                                <Button Content="Insert Vehicle" Width="110"
+                                <Button Content="차량 등록" Width="110"
                                        Style="{StaticResource ModernPrimaryButton}"
                                        Command="{Binding InsertVehicleCommand}"
                                        Margin="12,0,0,0"/>
                                 
-                                <Button Content="Extract Vehicle" Width="110"
+                                <Button Content="차량 추출" Width="110"
                                        Style="{StaticResource ModernPrimaryButton}"
                                        Command="{Binding ExtractVehicleCommand}"/>
                                 
@@ -1285,8 +1262,8 @@
                                                            Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Active Vehicles" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
-                                    <TextBlock Text="Real-time vehicle status and control" Style="{StaticResource CaptionText}" Margin="0"/>
+                                    <TextBlock Text="차량 정보" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="더블 클릭하여 상세 정보를 확인하세요" Style="{StaticResource CaptionText}" Margin="0"/>
                                 </StackPanel>
                             </StackPanel>
                             
@@ -1300,7 +1277,8 @@
                                          ColumnHeaderStyle="{StaticResource CenteredDataGridHeaderStyle}"
                                          CellStyle="{StaticResource CenteredDataGridCellStyle}"
                                          Sorting="VehicleDataGrid_Sorting"
-                                         Loaded="VehicleDataGrid_Loaded">
+                                         Loaded="VehicleDataGrid_Loaded"
+                                         SelectionChanged="VehicleDataGrid_SelectionChanged">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="이름" Binding="{Binding Name}" Width="*" SortMemberPath="Name" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                         <DataGridTextColumn Header="위치 좌표" Binding="{Binding CoordinatesText}" Width="1.2*" SortMemberPath="CoordinatesText" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
@@ -1348,7 +1326,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="AlertCircle" Width="18" Height="18"
                                                Foreground="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
-                        <TextBlock Text="Alarm Log"
+                        <TextBlock Text="알람 로그"
                                   FontSize="14" FontWeight="SemiBold"
                                   Foreground="{StaticResource PrimaryText}"/>
                     </StackPanel>
@@ -1541,8 +1519,8 @@
                                         <DataGridTextColumn Header="소스 ID" Binding="{Binding SourceId}" Width="120" ElementStyle="{StaticResource CenteredDataGridTextStyle}" SortMemberPath="SourceId"/>
                                         <DataGridTextColumn Header="이벤트 이름" Binding="{Binding EventDisplayName}" Width="2*" SortMemberPath="EventDisplayName" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                         <DataGridTextColumn Header="횟수" Binding="{Binding EventCount}" Width="70" ElementStyle="{StaticResource CenteredDataGridTextStyle}" HeaderStyle="{StaticResource CenteredDataGridHeaderStyle}" SortMemberPath="EventCount"/>
-                                        <DataGridTextColumn Header="첫 발생 시간" Binding="{Binding FirstEventAtText}" Width="0.8*" SortMemberPath="FirstEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
-                                        <DataGridTextColumn Header="마지막 발생" Binding="{Binding LastEventAtText}" Width="0.8*" SortMemberPath="LastEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="최초 발생" Binding="{Binding FirstEventAtText}" Width="0.8*" SortMemberPath="FirstEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
+                                        <DataGridTextColumn Header="최근 발생" Binding="{Binding LastEventAtText}" Width="0.8*" SortMemberPath="LastEventAt" ElementStyle="{StaticResource CenteredDataGridTextStyle}"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Border>

@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -44,6 +45,9 @@ public class MainViewModel : ViewModelBase
     private MissionFilterOption? _selectedMissionFilter;
     private DateTime? _missionFilterStart;
     private DateTime? _missionFilterEnd;
+    private bool _isMissionFilterEndAuto;
+    private bool _isUpdatingMissionFilterEndInternally;
+    private bool _suppressMissionHistoryReload;
     private string _missionSearchTerm = string.Empty;
     private const int CompletedMissionDefaultOffsetMinutes = 3;
     private string _missionSortProperty = nameof(MissionInfo.MissionIdSortValue);
@@ -127,7 +131,7 @@ public class MainViewModel : ViewModelBase
         _missionViewSource = new CollectionViewSource { Source = _missions };
         _missionViewSource.Filter += OnMissionFilter;
         _missionViewSource.SortDescriptions.Add(new SortDescription(nameof(MissionInfo.MissionIdSortValue), ListSortDirection.Descending));
-        ApplyMissionSort();
+        ResetMissionSortToMissionIdDescending();
 
         _missionTemplates.CollectionChanged += OnMissionTemplatesCollectionChanged;
         _templateViewSource = new CollectionViewSource { Source = _missionTemplates };
@@ -138,7 +142,7 @@ public class MainViewModel : ViewModelBase
 
         MissionFilterOptions = new ObservableCollection<MissionFilterOption>(new[]
         {
-            new MissionFilterOption("기본 (전체)", null, isDefault: true),
+            new MissionFilterOption("기본", null, isDefault: true),
             new MissionFilterOption("전체", null),
             new MissionFilterOption("수신 (0)", new[] { 0 }),
             new MissionFilterOption("대기 (1)", new[] { 1 }),
@@ -162,7 +166,6 @@ public class MainViewModel : ViewModelBase
             new AlarmSearchOption("횟수", nameof(AlarmInfo.EventCount)),
             new AlarmSearchOption("최초 발생", nameof(AlarmInfo.FirstEventAtText)),
             new AlarmSearchOption("최근 발생", nameof(AlarmInfo.LastEventAtText)),
-            new AlarmSearchOption("발생 시간", nameof(AlarmInfo.TimestampText))
         });
 
         _selectedAlarmSearchColumn = AlarmSearchColumns.First().Key;
@@ -352,12 +355,12 @@ public class MainViewModel : ViewModelBase
             }
             else
             {
-                if ((value?.IsAll ?? false) && !(value?.IsDefault ?? true))
-                {
-                    MissionFilterEnd = DateTime.Now;
-                }
+                var autoApplied = TryApplyAutoMissionFilterDefaults(value);
 
-                RefreshMissionFilter();
+                if (!autoApplied)
+                {
+                    RefreshMissionFilter();
+                }
 
                 if (value?.RequiresFullHistory ?? false)
                 {
@@ -374,7 +377,8 @@ public class MainViewModel : ViewModelBase
         get => _missionFilterStart;
         set
         {
-            if (!SetProperty(ref _missionFilterStart, value))
+            var normalized = NormalizeMissionFilterStartValue(value);
+            if (!SetProperty(ref _missionFilterStart, normalized))
             {
                 return;
             }
@@ -393,12 +397,18 @@ public class MainViewModel : ViewModelBase
         get => _missionFilterEnd;
         set
         {
-            if (!SetProperty(ref _missionFilterEnd, value))
+            var normalized = NormalizeMissionFilterEndValue(value);
+            if (!SetProperty(ref _missionFilterEnd, normalized))
             {
                 return;
             }
 
-            if (SelectedMissionFilter?.RequiresFullHistory ?? false)
+            if (!_isUpdatingMissionFilterEndInternally)
+            {
+                _isMissionFilterEndAuto = false;
+            }
+
+            if (!_suppressMissionHistoryReload && (SelectedMissionFilter?.RequiresFullHistory ?? false))
             {
                 _ = EnsureFullMissionHistoryAsync();
             }
@@ -776,6 +786,7 @@ public class MainViewModel : ViewModelBase
         {
             if (SetProperty(ref _insertNodeSearchText, value))
             {
+                SelectedInsertNode = value?.Trim() ?? string.Empty;
                 UpdateFilteredInsertNodes();
                 // 텍스트 입력 시 드롭다운 자동 열기
                 if (!string.IsNullOrEmpty(value))
@@ -1080,7 +1091,11 @@ public class MainViewModel : ViewModelBase
                     }
                 }
 
-                RefreshMissionFilter();
+                var autoUpdated = EnsureAutoMissionFilterEndIsCurrent(skipHistoryReload: true);
+                if (!autoUpdated)
+                {
+                    RefreshMissionFilter();
+                }
                 CommandManager.InvalidateRequerySuggested();
             });
 
@@ -1243,6 +1258,12 @@ public class MainViewModel : ViewModelBase
         FromNode = string.Empty;
         ToNode = string.Empty;
         TemplateVehicle = string.Empty;
+        FromNodeSearchText = string.Empty;
+        ToNodeSearchText = string.Empty;
+        SelectedFromNodeItem = null;
+        SelectedToNodeItem = null;
+        IsFromNodeDropDownOpen = false;
+        IsToNodeDropDownOpen = false;
         TemplatePriority = 2;
         TemplatePriorityDescription = string.Empty;
         FromNodeVars.Clear();
@@ -1295,10 +1316,10 @@ public class MainViewModel : ViewModelBase
         var fromVars = CloneVars(working.FromNodeConfig?.Vars);
         var toVars = CloneVars(working.ToNodeConfig?.Vars);
 
-        var dialog = new CommonDialogWindow(string.Empty, "템플릿 수정", CommonDialogWindow.DialogType.Info)
+        var dialog = new CommonDialogWindow(string.Empty, "미션 경로 수정", CommonDialogWindow.DialogType.Info)
         {
             Width = 560,
-            Height = 640
+            Height = 700
         };
 
         var owner = Application.Current?
@@ -1359,6 +1380,17 @@ public class MainViewModel : ViewModelBase
             control.BorderThickness = new Thickness(1);
         }
 
+        NodeInfo? FindNodeByName(string? nodeName)
+        {
+            if (string.IsNullOrWhiteSpace(nodeName))
+            {
+                return null;
+            }
+
+            return _availableNodes.FirstOrDefault(n =>
+                n != null && string.Equals(n.Name, nodeName, StringComparison.OrdinalIgnoreCase));
+        }
+
         var titleBox = new TextBox { Text = working.Title };
         StyleControl(titleBox);
         titleBox.TextChanged += (_, __) => working.Title = titleBox.Text;
@@ -1372,21 +1404,130 @@ public class MainViewModel : ViewModelBase
         StyleControl(typeCombo);
         formPanel.Children.Add(CreateField("미션 타입", typeCombo));
 
-        var vehicleBox = new TextBox { Text = working.Vehicle };
-        StyleControl(vehicleBox);
-        vehicleBox.TextChanged += (_, __) => working.Vehicle = vehicleBox.Text;
-        formPanel.Children.Add(CreateField("지게차", vehicleBox));
+        ComboBox CreateVehicleCombo()
+        {
+            var vehicleNames = Vehicles
+                .Select(v => v.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-        var fromNodeBox = new TextBox { Text = working.FromNode };
-        StyleControl(fromNodeBox);
-        fromNodeBox.TextChanged += (_, __) => working.FromNode = fromNodeBox.Text;
-        var fromSection = CreateField("From 노드", fromNodeBox);
+            var items = new ObservableCollection<string>(vehicleNames);
+
+            var combo = new ComboBox
+            {
+                ItemsSource = items,
+                IsEditable = true,
+                IsTextSearchEnabled = true,
+                StaysOpenOnEdit = true
+            };
+
+            StyleControl(combo);
+            combo.Text = working.Vehicle ?? string.Empty;
+
+            combo.SelectionChanged += (_, __) =>
+            {
+                if (combo.SelectedItem is string selected)
+                {
+                    combo.Text = selected;
+                    working.Vehicle = selected;
+                }
+            };
+
+            combo.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler((_, __) =>
+            {
+                working.Vehicle = combo.Text ?? string.Empty;
+                combo.IsDropDownOpen = !string.IsNullOrWhiteSpace(combo.Text);
+            }));
+
+            return combo;
+        }
+
+        ComboBox CreateNodeCombo(string? initialValue, Action<string> setter)
+        {
+            var nodeNames = _availableNodes
+                .Select(n => n.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var items = new ObservableCollection<string>(nodeNames);
+
+            void ApplyFilter(string? term)
+            {
+                var normalized = string.IsNullOrWhiteSpace(term) ? null : term.Trim();
+                var filtered = string.IsNullOrEmpty(normalized)
+                    ? nodeNames
+                    : nodeNames.Where(name => name.StartsWith(normalized, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                items.Clear();
+                foreach (var name in filtered)
+                {
+                    items.Add(name);
+                }
+            }
+
+            var combo = new ComboBox
+            {
+                ItemsSource = items,
+                IsEditable = true,
+                IsTextSearchEnabled = false,
+                StaysOpenOnEdit = true
+            };
+
+            StyleControl(combo);
+            combo.Text = initialValue ?? string.Empty;
+            ApplyFilter(initialValue);
+
+            var isUpdatingFromSelection = false;
+
+            combo.DropDownOpened += (_, __) =>
+            {
+                if (string.IsNullOrWhiteSpace(combo.Text))
+                {
+                    ApplyFilter(string.Empty);
+                }
+            };
+
+            combo.SelectionChanged += (_, __) =>
+            {
+                if (combo.SelectedItem is not string selected)
+                {
+                    return;
+                }
+
+                isUpdatingFromSelection = true;
+                combo.Text = selected;
+                setter(selected);
+                combo.IsDropDownOpen = false;
+                isUpdatingFromSelection = false;
+            };
+
+            combo.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler((_, __) =>
+            {
+                if (isUpdatingFromSelection)
+                {
+                    return;
+                }
+
+                var text = combo.Text ?? string.Empty;
+                ApplyFilter(text);
+                setter(text);
+                combo.IsDropDownOpen = !string.IsNullOrWhiteSpace(text);
+            }));
+
+            return combo;
+        }
+
+        var vehicleCombo = CreateVehicleCombo();
+        formPanel.Children.Add(CreateField("지게차", vehicleCombo));
+
+        var fromNodeCombo = CreateNodeCombo(working.FromNode, value => working.FromNode = value);
+        var fromSection = CreateField("출발지", fromNodeCombo);
         formPanel.Children.Add(fromSection);
 
-        var toNodeBox = new TextBox { Text = working.ToNode };
-        StyleControl(toNodeBox);
-        toNodeBox.TextChanged += (_, __) => working.ToNode = toNodeBox.Text;
-        formPanel.Children.Add(CreateField("To 노드", toNodeBox));
+        var toNodeCombo = CreateNodeCombo(working.ToNode, value => working.ToNode = value);
+        formPanel.Children.Add(CreateField("도착지", toNodeCombo));
 
         var priorityBox = new TextBox { Text = working.Priority.ToString() };
         StyleControl(priorityBox);
@@ -1430,11 +1571,11 @@ public class MainViewModel : ViewModelBase
             return box;
         }
 
-        CreateNodeTypeBox("From 노드 타입", fromNodeType, value => fromNodeType = value);
-        dynamicPanel.Children.Add(CreateField("From 노드 변수", CreateVarGrid(fromVars), new Thickness(0, 0, 0, 16)));
+        CreateNodeTypeBox("출발지 노드 타입", fromNodeType, value => fromNodeType = value);
+        dynamicPanel.Children.Add(CreateField("출발지 노드 변수", CreateVarGrid(fromVars), new Thickness(0, 0, 0, 16)));
 
-        CreateNodeTypeBox("To 노드 타입", toNodeType, value => toNodeType = value);
-        dynamicPanel.Children.Add(CreateField("To 노드 변수", CreateVarGrid(toVars), new Thickness(0, 0, 0, 0)));
+        CreateNodeTypeBox("도착지 노드 타입", toNodeType, value => toNodeType = value);
+        dynamicPanel.Children.Add(CreateField("도착지 노드 변수", CreateVarGrid(toVars), new Thickness(0, 0, 0, 0)));
 
         formPanel.Children.Add(dynamicPanel);
 
@@ -1718,21 +1859,38 @@ public class MainViewModel : ViewModelBase
 
     private async Task ExecuteInsertVehicle()
     {
-        if (string.IsNullOrEmpty(SelectedVehicle) || string.IsNullOrEmpty(SelectedInsertNode))
-            return;
+        var vehicle = SelectedVehicle?.Trim();
+        var insertNode = SelectedInsertNode?.Trim();
 
-        StatusText = $"차량 {SelectedVehicle} 삽입 중...";
+        if (string.IsNullOrEmpty(vehicle) || string.IsNullOrEmpty(insertNode))
+        {
+            return;
+        }
+
+        var hasNode = _availableNodes.Any(n =>
+            string.Equals(n.Name, insertNode, StringComparison.OrdinalIgnoreCase));
+
+        if (!hasNode)
+        {
+            StatusText = $"노드 '{insertNode}'을(를) 찾을 수 없습니다.";
+            ShowGeneralSnackbar(StatusText);
+            return;
+        }
+
+        StatusText = $"차량 {vehicle} 삽입 중...";
         
         try
         {
-            await _antApiService.InsertVehicleAsync(SelectedVehicle, SelectedInsertNode);
-            StatusText = $"차량 {SelectedVehicle}이(가) {SelectedInsertNode}에 삽입되었습니다.";
+            await _antApiService.InsertVehicleAsync(vehicle, insertNode);
+            StatusText = $"차량 {vehicle}이(가) {insertNode}에 삽입되었습니다.";
+            ShowGeneralSnackbar($"차량 {vehicle} 삽입 완료");
             
             await ExecuteRefreshVehicles();
         }
         catch (Exception ex)
         {
             StatusText = $"차량 삽입 실패: {ex.Message}";
+            ShowGeneralSnackbar($"차량 삽입 실패: {ex.Message}");
         }
     }
 
@@ -1747,12 +1905,14 @@ public class MainViewModel : ViewModelBase
         {
             await _antApiService.ExtractVehicleAsync(SelectedVehicle);
             StatusText = $"차량 {SelectedVehicle}이(가) 추출되었습니다.";
+            ShowGeneralSnackbar($"차량 {SelectedVehicle} 추출 완료");
             
             await ExecuteRefreshVehicles();
         }
         catch (Exception ex)
         {
             StatusText = $"차량 추출 실패: {ex.Message}";
+            ShowGeneralSnackbar($"차량 추출 실패: {ex.Message}");
         }
     }
 
@@ -2077,7 +2237,11 @@ public class MainViewModel : ViewModelBase
                             Missions.Add(mission);
                         }
                     }
-                    RefreshMissionFilter();
+                    var autoUpdated = EnsureAutoMissionFilterEndIsCurrent(skipHistoryReload: true);
+                    if (!autoUpdated)
+                    {
+                        RefreshMissionFilter();
+                    }
                 });
 
 
@@ -2104,7 +2268,11 @@ public class MainViewModel : ViewModelBase
                 {
                     Missions.Add(mission);
                 }
-                RefreshMissionFilter();
+                var autoUpdated = EnsureAutoMissionFilterEndIsCurrent(skipHistoryReload: true);
+                if (!autoUpdated)
+                {
+                    RefreshMissionFilter();
+                }
             });
 
 
@@ -2135,7 +2303,7 @@ public class MainViewModel : ViewModelBase
     private void RefreshMissionFilter()
     {
         MissionView?.Refresh();
-        ApplyMissionSort();
+        ResetMissionSortToMissionIdDescending();
         UpdateMissionStatistics();
         CommandManager.InvalidateRequerySuggested();
     }
@@ -2143,6 +2311,11 @@ public class MainViewModel : ViewModelBase
     private void ApplyMissionSort()
     {
         ApplyMissionSort(_missionSortProperty, _missionSortDirection, updateState: false);
+    }
+
+    private void ResetMissionSortToMissionIdDescending()
+    {
+        ApplyMissionSort(nameof(MissionInfo.MissionIdSortValue), ListSortDirection.Descending, updateState: true);
     }
 
     public void ApplyMissionColumnSort(string propertyName, ListSortDirection direction)
@@ -2324,6 +2497,86 @@ public class MainViewModel : ViewModelBase
         }
 
         return value;
+    }
+
+    private static DateTime? NormalizeMissionFilterStartValue(DateTime? value)
+    {
+        return value?.Date;
+    }
+
+    private static DateTime? NormalizeMissionFilterEndValue(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        var date = value.Value.Date;
+        return date.AddDays(1).AddTicks(-1);
+    }
+
+    private bool TryApplyAutoMissionFilterDefaults(MissionFilterOption? option)
+    {
+        if (option == null)
+        {
+            _isMissionFilterEndAuto = false;
+            return false;
+        }
+
+        if (option.IsDefault)
+        {
+            _isMissionFilterEndAuto = false;
+            return false;
+        }
+
+        if (option.IsAll)
+        {
+            SetMissionFilterEndInternal(DateTime.Now, isAuto: true, skipHistoryReload: true);
+            return true;
+        }
+
+        _isMissionFilterEndAuto = false;
+        return false;
+    }
+
+    private bool EnsureAutoMissionFilterEndIsCurrent(bool skipHistoryReload = false)
+    {
+        if (!_isMissionFilterEndAuto)
+        {
+            return false;
+        }
+
+        var filter = SelectedMissionFilter;
+        if (filter == null || filter.IsDefault || !filter.IsAll)
+        {
+            _isMissionFilterEndAuto = false;
+            return false;
+        }
+
+        if (!MissionFilterEnd.HasValue || DateTime.Now > MissionFilterEnd.Value)
+        {
+            SetMissionFilterEndInternal(DateTime.Now, isAuto: true, skipHistoryReload);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void SetMissionFilterEndInternal(DateTime? value, bool isAuto, bool skipHistoryReload)
+    {
+        _isUpdatingMissionFilterEndInternally = true;
+        _suppressMissionHistoryReload = skipHistoryReload;
+
+        try
+        {
+            _isMissionFilterEndAuto = isAuto;
+            MissionFilterEnd = value;
+        }
+        finally
+        {
+            _suppressMissionHistoryReload = false;
+            _isUpdatingMissionFilterEndInternally = false;
+        }
     }
 
     private static bool TryParseMissionDisplayTimestamp(string? text, out DateTime timestamp)

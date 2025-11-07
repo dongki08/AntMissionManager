@@ -199,6 +199,28 @@ public partial class MainWindow : Window
         }
     }
 
+    private void VehicleDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        if (sender is not DataGrid dataGrid)
+        {
+            return;
+        }
+
+        if (dataGrid.SelectedItem is Vehicle vehicle)
+        {
+            vm.SelectedVehicle = vehicle.Name ?? string.Empty;
+        }
+        else if (dataGrid.SelectedItem == null && vm.VehiclesView?.CurrentItem is not Vehicle)
+        {
+            vm.SelectedVehicle = string.Empty;
+        }
+    }
+
     private void MissionDataGrid_Sorting(object sender, DataGridSortingEventArgs e)
     {
         if (DataContext is not MainViewModel vm)
