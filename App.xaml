@@ -324,7 +324,7 @@
                 <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
                 <Setter Property="FontSize" Value="18"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
-                <Setter Property="Margin" Value="0,0,0,12"/>
+                <Setter Property="Margin" Value="0,0,0,0"/>
             </Style>
             
             <Style x:Key="BodyText" TargetType="TextBlock">
@@ -425,6 +425,9 @@
             <utilities:BatteryLevelToWidthConverter x:Key="BatteryLevelToWidthConverter"/>
             <utilities:NavigationStateToColorConverter x:Key="NavigationStateToColorConverter"/>
             <utilities:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+            <utilities:AuthTypeToVisibilityConverter x:Key="AuthTypeToVisibilityConverter"/>
+            <utilities:ExpandIconConverter x:Key="ExpandIconConverter"/>
+            <utilities:HttpMethodToColorConverter x:Key="HttpMethodToColorConverter"/>
 
         </ResourceDictionary>
     </Application.Resources>

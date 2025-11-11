@@ -1592,6 +1592,21 @@
                 </Grid>
             </TabItem>
 
+            <!-- API Test Tab -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Api" Width="18" Height="18"
+                                               Foreground="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
+                        <TextBlock Text="API 테스트"
+                                  FontSize="14" FontWeight="SemiBold"
+                                  Foreground="{StaticResource PrimaryText}"/>
+                    </StackPanel>
+                </TabItem.Header>
+
+                <views:ApiTestView/>
+            </TabItem>
+
             </TabControl>
         
         <!-- Status Bar -->

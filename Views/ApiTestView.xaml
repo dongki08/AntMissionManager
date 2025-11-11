@@ -1,0 +1,448 @@
+<UserControl x:Class="AntManager.Views.ApiTestView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             Background="Transparent">
+    <Grid Margin="0" Background="{StaticResource CardBackground}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="370"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Template Panel -->
+        <Border Grid.Column="0"
+                Style="{StaticResource GlassCard}"
+                Margin="24,24,0,24">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                    <Border Background="{StaticResource AccentBrush}"
+                            Width="40" Height="40"
+                            CornerRadius="20"
+                            Margin="0,0,12,0">
+                        <materialDesign:PackIcon Kind="ContentSaveAll" Width="20" Height="20"
+                                                 Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
+                        <TextBlock Text="API 템플릿" Style="{StaticResource SubheadingText}"/>
+                    </StackPanel>
+                    <Button Content="불러오기" Width="65" Style="{StaticResource ModernPrimaryButton}" Command="{Binding ImportTemplatesCommand}" Margin="0,0,4,0"/>
+                    <Button Content="내보내기" Width="65" Style="{StaticResource ModernPrimaryButton}" Command="{Binding ExportTemplatesCommand}"/>
+                </StackPanel>
+
+                <Border Grid.Row="1" Background="{StaticResource SurfaceBackground}"
+                        CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        Margin="0,0,0,8">
+                    <TextBox Text="{Binding TemplateTitle, UpdateSourceTrigger=PropertyChanged}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Foreground="{StaticResource PrimaryText}"
+                             Padding="12,8"
+                             materialDesign:HintAssist.Hint="템플릿 제목"/>
+                </Border>
+
+                <Border Grid.Row="2" Background="{StaticResource SurfaceBackground}"
+                        CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        Margin="0,0,0,12">
+                    <TextBox Text="{Binding TemplateDescription, UpdateSourceTrigger=PropertyChanged}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Foreground="{StaticResource PrimaryText}"
+                             Padding="12,8"
+                             MinHeight="60"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             materialDesign:HintAssist.Hint="설명 (선택)"/>
+                </Border>
+
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+                    <Button Content="저장" Style="{StaticResource ModernPrimaryButton}" Command="{Binding SaveTemplateCommand}" Width="60" Margin="0,0,8,0"/>
+                    <Button Content="삭제" Style="{StaticResource ModernDangerButton}" Command="{Binding DeleteTemplateCommand}" Width="60" Margin="0,0,8,0"/>
+                    <Button Content="초기화" Style="{StaticResource ModernSecondaryButton}" Command="{Binding ClearCommand}" Width="70" Margin="0,0,8,0"/>
+                </StackPanel>
+
+                <Border Grid.Row="4" Background="{StaticResource SurfaceBackground}"
+                        CornerRadius="12" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                    <ListBox ItemsSource="{Binding ApiTemplates}"
+                             SelectedItem="{Binding SelectedTemplate}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Foreground="{StaticResource PrimaryText}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="12,8"/>
+                                <Setter Property="Margin" Value="0,0,0,-6"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="8" Padding="12" Margin="0,0,0,4">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource CardBackground}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                                    <Setter Property="Background" Value="{StaticResource SurfaceBackground}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
+                                            <Border CornerRadius="4"
+                                                    Padding="6,2"
+                                                    Margin="0,0,8,0">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{Binding Method, Converter={StaticResource HttpMethodToColorConverter}}"/>
+                                                </Border.Background>
+                                                <TextBlock Text="{Binding Method}" FontWeight="Bold" FontSize="12" Foreground="White"/>
+                                            </Border>
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Url}" Foreground="{StaticResource MutedText}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+            </Grid>
+        </Border>
+
+        <Grid Grid.Column="1" Margin="12,24,24,24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="{Binding RequestRowHeight}"/>
+                <RowDefinition Height="{Binding ResponseRowHeight}"/>
+            </Grid.RowDefinitions>
+
+            <!-- Request Section -->
+            <Border Grid.Row="0" Style="{StaticResource GlassCard}" Margin="12,0,0,16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header with all controls in one line -->
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Request Icon & Title -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,12,0">
+                        <Border Background="{StaticResource PrimaryBrush}"
+                               Width="40" Height="40"
+                               CornerRadius="20"
+                               Margin="0,0,8,0">
+                            <materialDesign:PackIcon Kind="Api" Width="20" Height="20"
+                                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="요청" Style="{StaticResource SubheadingText}" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Method -->
+                    <Border Grid.Column="1" Background="{StaticResource SurfaceBackground}"
+                           CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                           Margin="0,0,8,0">
+                        <ComboBox SelectedItem="{Binding SelectedMethod}"
+                                 ItemsSource="{Binding HttpMethods}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="{StaticResource PrimaryText}"
+                                 Padding="12,8"
+                                 materialDesign:HintAssist.Hint="Method"/>
+                    </Border>
+
+                    <!-- URL -->
+                    <Border x:Name="UrlBorder" Grid.Column="2" Background="{StaticResource SurfaceBackground}"
+                           CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                        <TextBox x:Name="UrlTextBox"
+                                Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                VerticalAlignment="Center"
+                                Foreground="{StaticResource PrimaryText}"
+                                Padding="12,8"
+                                GotFocus="UrlTextBox_GotFocus"
+                                LostFocus="UrlTextBox_LostFocus"
+                                materialDesign:HintAssist.Hint="Enter URL"/>
+                    </Border>
+
+                    <!-- URL Expanded Popup -->
+                    <Popup x:Name="UrlPopup"
+                           PlacementTarget="{Binding ElementName=UrlBorder}"
+                           Placement="Bottom"
+                           StaysOpen="True"
+                           AllowsTransparency="True"
+                           IsOpen="{Binding IsUrlFocused}"
+                           Width="{Binding ElementName=UrlBorder, Path=ActualWidth}">
+                        <Border Background="{StaticResource SurfaceBackground}"
+                               CornerRadius="8"
+                               BorderBrush="{StaticResource BorderBrush}"
+                               BorderThickness="1"
+                               MaxHeight="120"
+                               Margin="0,4,0,0">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
+                            </Border.Effect>
+                            <TextBox Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Foreground="{StaticResource PrimaryText}"
+                                    Padding="12,8"
+                                    TextWrapping="Wrap"
+                                    AcceptsReturn="False"
+                                    VerticalScrollBarVisibility="Auto"
+                                    GotFocus="UrlPopupTextBox_GotFocus"
+                                    LostFocus="UrlPopupTextBox_LostFocus"/>
+                        </Border>
+                    </Popup>
+
+                    <!-- Send -->
+                    <Button Grid.Column="3" Content="전송"
+                            Style="{StaticResource ModernDangerButton}"
+                            Command="{Binding SendRequestCommand}"
+                            Margin="8,0,8,0"/>
+                    
+                    <!-- Headers -->
+                    <Button Grid.Column="4" Content="해더"
+                           Style="{StaticResource ModernPrimaryButton}"
+                           Click="OpenHeadersDialog_Click"
+                           Margin="0,0,8,0"/>
+                    
+
+                    <!-- Format JSON -->
+                    <Button Grid.Column="5" Content="정렬"
+                           Style="{StaticResource ModernPrimaryButton}"
+                           Command="{Binding FormatJsonCommand}"
+                           Margin="0,0,8,0"/>
+
+                    <!-- Toggle Button -->
+                    <Button Grid.Column="6"
+                           Command="{Binding ToggleRequestCommand}"
+                           Width="40" Height="40"
+                           Background="{StaticResource SurfaceBackground}"
+                           BorderThickness="0"
+                           Cursor="Hand"
+                           ToolTip="Toggle Request Section">
+                        <materialDesign:PackIcon Kind="{Binding IsRequestExpanded, Converter={StaticResource ExpandIconConverter}}"
+                                               Width="20" Height="20"
+                                               Foreground="{StaticResource PrimaryText}"/>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource HoverBackground}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+
+                <!-- Request Body TextBox -->
+                <Border Grid.Row="1" Background="{StaticResource DarkBackground}"
+                       CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                       Visibility="{Binding IsRequestExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBox Text="{Binding RequestBody, UpdateSourceTrigger=LostFocus}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="{StaticResource PrimaryText}"
+                            FontFamily="Consolas"
+                            FontSize="13"
+                            Padding="12,12,0,0"
+                            AcceptsReturn="True"
+                            TextWrapping="NoWrap"
+                            VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Auto"
+                            MaxLength="5000000"
+                            materialDesign:HintAssist.Hint="Request Body (JSON)"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Response Section -->
+        <Border Grid.Row="1" Style="{StaticResource GlassCard}" Margin="12,0,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header with Toggle and Status -->
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Border Background="{StaticResource AccentBrush}"
+                               Width="40" Height="40"
+                               CornerRadius="20"
+                               Margin="0,0,12,0">
+                            <materialDesign:PackIcon Kind="CodeJson" Width="20" Height="20"
+                                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="응답" Style="{StaticResource SubheadingText}" Margin="0,0,0,4"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Status Info (오른쪽 배치) -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"
+                               Visibility="{Binding IsResponseExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Status: " Style="{StaticResource BodyText}" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding ResponseStatus}" Style="{StaticResource BodyText}" Margin="4,0,16,0"/>
+                        <TextBlock Text="Time: " Style="{StaticResource BodyText}" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding ResponseTime}" Style="{StaticResource BodyText}" Margin="4,0,0,0"/>
+                        <TextBlock Text="ms" Style="{StaticResource BodyText}" Margin="2,0,0,0"/>
+                    </StackPanel>
+
+                    <!-- Popup Button -->
+                    <Button Grid.Column="2"
+                           Command="{Binding OpenResponsePopupCommand}"
+                           Width="40" Height="40"
+                           Background="{StaticResource SurfaceBackground}"
+                           BorderThickness="0"
+                           Cursor="Hand"
+                           ToolTip="크게 보기"
+                           Margin="0,0,8,0">
+                        <materialDesign:PackIcon Kind="OpenInNew"
+                                               Width="20" Height="20"
+                                               Foreground="{StaticResource PrimaryText}"/>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource HoverBackground}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <Button Grid.Column="3"
+                           Command="{Binding ToggleResponseCommand}"
+                           Width="40" Height="40"
+                           Background="{StaticResource SurfaceBackground}"
+                           BorderThickness="0"
+                           Cursor="Hand"
+                           ToolTip="Toggle Response Section">
+                        <materialDesign:PackIcon Kind="{Binding IsResponseExpanded, Converter={StaticResource ExpandIconConverter}}"
+                                               Width="20" Height="20"
+                                               Foreground="{StaticResource PrimaryText}"/>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource HoverBackground}"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+
+                <!-- Response Body -->
+                <Border Grid.Row="1" Background="{StaticResource DarkBackground}"
+                       CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                       Visibility="{Binding IsResponseExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBox Text="{Binding ResponseBody, Mode=OneWay}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="{StaticResource PrimaryText}"
+                            FontFamily="Consolas"
+                            FontSize="13"
+                            Padding="12,12,0,0"
+                            IsReadOnly="True"
+                            TextWrapping="NoWrap"
+                            AcceptsReturn="True"
+                            VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Auto"
+                            IsUndoEnabled="False"
+                            MaxLength="5000000"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        </Grid>
+
+        <!-- Loading Overlay -->
+        <!-- <Border Grid.RowSpan="2" Background="#AA000000" -->
+        <!--         Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"> -->
+        <!--     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"> -->
+        <!--         <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}" -->
+        <!--                     Value="0" -->
+        <!--                     IsIndeterminate="True" -->
+        <!--                     Width="60" -->
+        <!--                     Height="60" -->
+        <!--                     Foreground="{StaticResource PrimaryBrush}"/> -->
+        <!--         <TextBlock Text="Sending request..." -->
+        <!--                   Style="{StaticResource BodyText}" -->
+        <!--                   Margin="0,16,0,0" -->
+        <!--                   FontWeight="SemiBold"/> -->
+        <!--     </StackPanel> -->
+        <!-- </Border> -->
+    </Grid>
+</UserControl>

@@ -24,9 +24,14 @@
             </Grid.RowDefinitions>
 
             <!-- Title Bar -->
-            <Border Grid.Row="0" Background="{StaticResource CardBackground}" CornerRadius="12,12,0,0" >
+            <Border Grid.Row="0" Background="{StaticResource CardBackground}" CornerRadius="12,12,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid Margin="20,0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <materialDesign:PackIcon x:Name="IconType" Kind="Alert" Width="20" Height="20"
                                                Foreground="{StaticResource WarningBrush}" Margin="0,0,12,0"/>
                         <TextBlock x:Name="TitleText" Text="Confirmation"
@@ -35,6 +40,37 @@
                                   Foreground="{StaticResource PrimaryText}"
                                   VerticalAlignment="Center"/>
                     </StackPanel>
+
+                    <Button x:Name="CloseButton" Grid.Column="1" Content="✕"
+                           Width="40" Height="40"
+                           Background="Transparent"
+                           BorderThickness="0"
+                           Foreground="{StaticResource MutedText}"
+                           FontSize="16"
+                           FontWeight="Bold"
+                           Cursor="Hand"
+                           Click="CloseButton_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource ErrorBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </Grid>
             </Border>
 

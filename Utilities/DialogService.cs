@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using AntManager.Views.Common;
 
@@ -32,9 +33,17 @@ public class DialogService : IDialogService
     {
         var dialog = new MessageDialog
         {
-            Owner = Application.Current.MainWindow,
             Title = title
         };
+
+        var owner = Application.Current?.Windows
+            .OfType<Window>()
+            .FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+
+        if (owner != null && owner != dialog)
+        {
+            dialog.Owner = owner;
+        }
 
         dialog.SetMessage(message, messageType, showCancel);
         

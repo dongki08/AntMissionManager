@@ -125,3 +125,62 @@ public class NullToVisibilityConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+public class AuthTypeToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string authType)
+        {
+            return authType != "None" ? Visibility.Visible : Visibility.Collapsed;
+        }
+        return Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class ExpandIconConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool isExpanded)
+        {
+            return isExpanded ? "ChevronUp" : "ChevronDown";
+        }
+        return "ChevronDown";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class HttpMethodToColorConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string method)
+        {
+            return method.ToUpper() switch
+            {
+                "GET" => "#3B82F6",    // 하늘색 (Blue)
+                "POST" => "#10B981",   // 연두색 (Green)
+                "PUT" => "#F59E0B",    // 주황색 (Orange)
+                "DELETE" => "#EF4444", // 붉은색 (Red)
+                "PATCH" => "#8B5CF6",  // 보라색 (Purple)
+                _ => "#6B7280"         // 회색 (Gray)
+            };
+        }
+        return "#6B7280";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
