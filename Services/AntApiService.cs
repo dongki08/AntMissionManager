@@ -21,6 +21,7 @@ public class AntApiService
     public bool IsConnected { get; private set; }
     public string CurrentServerUrl { get; private set; } = string.Empty;
     public string Token => _token;
+    public string? ApiVersion => string.IsNullOrWhiteSpace(_apiVersion) ? null : _apiVersion.Trim('/');
 
     public static AntApiService Instance
     {

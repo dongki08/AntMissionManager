@@ -13,10 +13,11 @@ public class ApiTemplateStorageService
 
     public ApiTemplateStorageService()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var folder = Path.Combine(appData, "AntManager");
+        // Store data in 'data' folder next to exe file
+        var exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        var folder = Path.Combine(exeDirectory, "data");
         Directory.CreateDirectory(folder);
-        _storageFilePath = Path.Combine(folder, "api-templates.json");
+        _storageFilePath = Path.Combine(folder, "api_templates.json");
     }
 
     public IList<ApiRequestTemplate> LoadTemplates()

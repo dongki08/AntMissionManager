@@ -483,12 +483,11 @@ public class MainViewModel : ViewModelBase
                 _missionTemplates.CollectionChanged -= OnMissionTemplatesCollectionChanged;
             }
 
-            if (SetProperty(ref _missionTemplates, value))
+            var nextTemplates = value ?? new ObservableCollection<MissionTemplate>();
+
+            if (SetProperty(ref _missionTemplates, nextTemplates))
             {
-                if (_missionTemplates != null)
-                {
-                    _missionTemplates.CollectionChanged += OnMissionTemplatesCollectionChanged;
-                }
+                _missionTemplates.CollectionChanged += OnMissionTemplatesCollectionChanged;
 
                 if (_templateViewSource != null)
                 {

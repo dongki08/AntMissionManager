@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using AntManager.Models;
@@ -352,7 +353,22 @@ public class ApiTestViewModel : ViewModelBase
         TemplateTitle = template.Title;
         TemplateDescription = template.Description;
         SelectedMethod = string.IsNullOrWhiteSpace(template.Method) ? "GET" : template.Method;
-        Url = template.Url;
+
+        // 템플릿 URL의 IP를 현재 로그인된 IP로 변경하고 API 버전 동기화
+        var antApiService = AntManager.Services.AntApiService.Instance;
+        var updatedUrl = template.Url;
+
+        if (antApiService.IsConnected)
+        {
+            if (!string.IsNullOrEmpty(antApiService.CurrentServerUrl))
+            {
+                updatedUrl = ReplaceUrlHost(updatedUrl, antApiService.CurrentServerUrl);
+            }
+
+            updatedUrl = ReplaceUrlApiVersion(updatedUrl, antApiService.ApiVersion);
+        }
+
+        Url = updatedUrl;
         RequestBody = template.Body;
 
         // 현재 선택된 템플릿 ID 저장
@@ -361,7 +377,6 @@ public class ApiTestViewModel : ViewModelBase
         Headers.Clear();
         if (template.Headers != null)
         {
-            var antApiService = AntManager.Services.AntApiService.Instance;
             var currentToken = antApiService.IsConnected && !string.IsNullOrEmpty(antApiService.Token)
                 ? $"Bearer {antApiService.Token}"
                 : null;
@@ -387,6 +402,226 @@ public class ApiTestViewModel : ViewModelBase
                 }
             }
         }
+    }
+
+    private string ReplaceUrlHost(string url, string newHost)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return url;
+
+        try
+        {
+            // URL이 http:// 또는 https://로 시작하는지 확인
+            if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = url.Substring(7).Split(new[] { '/' }, 2);
+                if (parts.Length > 0)
+                {
+                    // 포트 번호가 있는 경우 처리 (예: 192.168.0.1:8080)
+                    var hostPart = parts[0];
+                    var pathPart = parts.Length > 1 ? parts[1] : "";
+
+                    // 새 호스트에 포트가 있는지 확인하고 없으면 기존 포트 유지
+                    if (!newHost.Contains(':') && hostPart.Contains(':'))
+                    {
+                        var port = hostPart.Split(':')[1];
+                        newHost = $"{newHost}:{port}";
+                    }
+
+                    return string.IsNullOrEmpty(pathPart)
+                        ? $"http://{newHost}"
+                        : $"http://{newHost}/{pathPart}";
+                }
+            }
+            else if (url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = url.Substring(8).Split(new[] { '/' }, 2);
+                if (parts.Length > 0)
+                {
+                    var hostPart = parts[0];
+                    var pathPart = parts.Length > 1 ? parts[1] : "";
+
+                    if (!newHost.Contains(':') && hostPart.Contains(':'))
+                    {
+                        var port = hostPart.Split(':')[1];
+                        newHost = $"{newHost}:{port}";
+                    }
+
+                    return string.IsNullOrEmpty(pathPart)
+                        ? $"https://{newHost}"
+                        : $"https://{newHost}/{pathPart}";
+                }
+            }
+        }
+        catch
+        {
+            // 파싱 실패 시 원본 URL 반환
+            return url;
+        }
+
+        return url;
+    }
+
+    private string ReplaceUrlApiVersion(string url, string? apiVersion)
+    {
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(apiVersion))
+            return url;
+
+        var sanitizedVersion = apiVersion.Trim('/');
+        if (string.IsNullOrEmpty(sanitizedVersion))
+            return url;
+
+        const string placeholder = "{version}";
+        var placeholderIndex = url.IndexOf(placeholder, StringComparison.OrdinalIgnoreCase);
+
+        if (placeholderIndex >= 0)
+        {
+            return ReplaceVersionPlaceholder(url, placeholder, sanitizedVersion, placeholderIndex);
+        }
+
+        return ReplaceVersionPathSegment(url, sanitizedVersion);
+    }
+
+    private static string ReplaceVersionPlaceholder(string url, string placeholder, string sanitizedVersion, int firstMatchIndex)
+    {
+        var builder = new StringBuilder();
+        var comparison = StringComparison.OrdinalIgnoreCase;
+        var lastIndex = 0;
+        var matchIndex = firstMatchIndex;
+
+        while (matchIndex >= 0)
+        {
+            builder.Append(url, lastIndex, matchIndex - lastIndex);
+            builder.Append(sanitizedVersion);
+            lastIndex = matchIndex + placeholder.Length;
+            matchIndex = url.IndexOf(placeholder, lastIndex, comparison);
+        }
+
+        builder.Append(url, lastIndex, url.Length - lastIndex);
+        return builder.ToString();
+    }
+
+    private string ReplaceVersionPathSegment(string url, string sanitizedVersion)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var absoluteUri))
+        {
+            var segments = absoluteUri.AbsolutePath
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
+
+            var restIndex = FindRestSegmentIndex(segments);
+            if (restIndex >= 0)
+            {
+                var versionIndex = restIndex + 2;
+
+                if (versionIndex < segments.Count)
+                {
+                    if (LooksLikeVersionSegment(segments[versionIndex]))
+                    {
+                        segments[versionIndex] = sanitizedVersion;
+                    }
+                    else
+                    {
+                        segments.Insert(versionIndex, sanitizedVersion);
+                    }
+                }
+                else
+                {
+                    segments.Add(sanitizedVersion);
+                }
+
+                var builder = new UriBuilder(absoluteUri)
+                {
+                    Path = "/" + string.Join("/", segments)
+                };
+
+                return builder.Uri.ToString();
+            }
+        }
+
+        return ReplaceVersionSegmentFallback(url, sanitizedVersion);
+    }
+
+    private static int FindRestSegmentIndex(IList<string> segments)
+    {
+        for (int i = 0; i < segments.Count - 1; i++)
+        {
+            if (segments[i].Equals("wms", StringComparison.OrdinalIgnoreCase) &&
+                segments[i + 1].Equals("rest", StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static bool LooksLikeVersionSegment(string segment)
+    {
+        if (string.IsNullOrWhiteSpace(segment))
+        {
+            return false;
+        }
+
+        var trimmed = segment.Trim('/');
+        if (trimmed.Length == 0)
+        {
+            return false;
+        }
+
+        if (trimmed.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed.Length > 1 ? trimmed.Substring(1) : string.Empty;
+        }
+
+        return trimmed.Length > 0 && trimmed.All(c => char.IsDigit(c) || c == '.');
+    }
+
+    private string ReplaceVersionSegmentFallback(string url, string sanitizedVersion)
+    {
+        const string RestToken = "/wms/rest";
+        var restIndex = url.IndexOf(RestToken, StringComparison.OrdinalIgnoreCase);
+        if (restIndex < 0)
+        {
+            return url;
+        }
+
+        var ensureSlashIndex = restIndex + RestToken.Length;
+        if (ensureSlashIndex >= url.Length || url[ensureSlashIndex] != '/')
+        {
+            url = url.Insert(ensureSlashIndex, "/");
+        }
+
+        var versionStartIndex = restIndex + RestToken.Length + 1;
+        if (versionStartIndex > url.Length)
+        {
+            versionStartIndex = url.Length;
+        }
+
+        var remaining = url.Substring(versionStartIndex);
+        var firstSegmentLength = 0;
+        while (firstSegmentLength < remaining.Length &&
+               remaining[firstSegmentLength] != '/' &&
+               remaining[firstSegmentLength] != '?' &&
+               remaining[firstSegmentLength] != '#')
+        {
+            firstSegmentLength++;
+        }
+
+        var segment = remaining.Substring(0, firstSegmentLength);
+        var tail = remaining.Substring(firstSegmentLength);
+
+        if (LooksLikeVersionSegment(segment))
+        {
+            return $"{url.Substring(0, versionStartIndex)}{sanitizedVersion}{tail}";
+        }
+
+        if (remaining.Length == 0 || remaining.StartsWith("?") || remaining.StartsWith("#"))
+        {
+            return $"{url.Substring(0, versionStartIndex)}{sanitizedVersion}{remaining}";
+        }
+
+        return $"{url.Substring(0, versionStartIndex)}{sanitizedVersion}/{remaining}";
     }
 
     private ApiRequestTemplate BuildTemplateFromRequest(Guid templateId)
@@ -632,7 +867,7 @@ public class ApiTestViewModel : ViewModelBase
             return;
         }
 
-        var filePath = _dialogService.ShowSaveFileDialog("JSON 파일 (*.json)|*.json", "템플릿 내보내기", "api-templates.json");
+        var filePath = _dialogService.ShowSaveFileDialog("JSON 파일 (*.json)|*.json", "템플릿 내보내기", "api_templates.json");
         if (string.IsNullOrWhiteSpace(filePath)) return;
 
         try

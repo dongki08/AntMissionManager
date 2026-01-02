@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="Headers"
-        Height="500" Width="700"
+        Height="500" Width="500"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -29,7 +29,8 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="Headers"
+                    <TextBlock Grid.Column="0"
+                              Text="해더"
                               FontSize="13"
                               FontWeight="SemiBold"
                               Foreground="{StaticResource PrimaryText}"
@@ -69,44 +70,34 @@
             </Border>
 
             <!-- Content -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24">
-                <StackPanel>
-                    <!-- Headers Section -->
-                    <Border Background="{StaticResource CardBackground}"
-                           CornerRadius="8"
-                           Padding="16">
-                        <StackPanel>
-                            <Grid Margin="0,0,0,16">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <TextBlock Grid.Column="0" 
-                                          Text="Custom Headers" 
-                                          Style="{StaticResource SubheadingText}"/>
-                                
-                                <Button Grid.Column="1" 
-                                       Content="+ Add Header"
-                                       Width="120"
-                                       Style="{StaticResource ModernPrimaryButton}"
-                                       Command="{Binding AddHeaderCommand}"/>
-                            </Grid>
+            <Grid Grid.Row="1" Margin="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                            <Border Background="{StaticResource DarkBackground}"
-                                   CornerRadius="8"
-                                   BorderBrush="{StaticResource BorderBrush}"
-                                   BorderThickness="1"
-                                   Padding="12"
-                                   MinHeight="200">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="300">
-                                    <ItemsControl ItemsSource="{Binding Headers}">
+                <Button Grid.Row="0"
+                       Content="+ 해더 추가"
+                       Width="120"
+                       Height="32"
+                       HorizontalAlignment="Right"
+                       Margin="0,0,0,12"
+                       Style="{StaticResource ModernPrimaryButton}"
+                       Command="{Binding AddHeaderCommand}"/>
+
+                <Border Grid.Row="1" Background="{StaticResource DarkBackground}"
+                       CornerRadius="8"
+                       BorderBrush="{StaticResource BorderBrush}"
+                       BorderThickness="1"
+                       Padding="12">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Headers}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Grid Margin="0,0,0,8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="1.4*"/>
                                                         <ColumnDefinition Width="40"/>
                                                     </Grid.ColumnDefinitions>
 
@@ -171,20 +162,17 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                </ScrollViewer>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </ScrollViewer>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
 
             <!-- Action Buttons -->
             <Border Grid.Row="2" 
                    Background="{StaticResource CardBackground}" 
                    CornerRadius="0,0,12,12"
-                   Padding="24,12">
+                   Padding="24,0">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Close"
+                    <Button Content="닫기"
                            Width="100"
                            Style="{StaticResource ModernPrimaryButton}"
                            Click="CloseButton_Click"/>
